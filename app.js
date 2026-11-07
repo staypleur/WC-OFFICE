@@ -109,6 +109,14 @@ async function restoreViewPosition(revision) {
     requestAnimationFrame(() => requestAnimationFrame(resolve)),
   );
   if (revision !== positionRevision || !restoringPosition) return;
+  const connection = connectionFromHash();
+  if (connection) {
+    connection.open = true;
+    connection.querySelector("summary").focus({ preventScroll: true });
+    connection.scrollIntoView({ block: "center", behavior: "instant" });
+    restoringPosition = false;
+    return;
+  }
   const saved = positionPreferences.get(viewPath);
   const anchor =
     saved?.anchor &&
@@ -191,6 +199,8 @@ function setPageVisibility(id) {
         node.classList.toggle("route-hidden", !pages.includes(page)),
       ),
   );
+  const connection = connectionFromHash();
+  if (connection) connection.open = true;
   document.querySelectorAll("aside nav a").forEach((link) => {
     const active =
       new URL(link.href).pathname ===
@@ -223,6 +233,12 @@ function setPageVisibility(id) {
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
+}
+
+function connectionFromHash() {
+  if (!["/team", "/settings"].includes(location.pathname)) return null;
+  if (!/^#connect-(codex|claude|gemini)$/.test(location.hash)) return null;
+  return document.getElementById(location.hash.slice(1));
 }
 
 function connectChat(id) {

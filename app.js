@@ -899,10 +899,14 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
   button.hidden = false;
   button.disabled = false;
   button.classList.add("undo-timed");
-  button.classList.remove("undo-expiring", "undo-paused");
+  button.classList.remove("undo-expiring", "undo-paused", "undo-urgent");
   const tick = () => {
     const left = remaining();
     const seconds = Math.ceil(left / 1000);
+    button.classList.toggle(
+      "undo-urgent",
+      left <= 3000 && pausedRemaining === null,
+    );
     button.style.setProperty(
       "--undo-remaining",
       String(Math.max(0, Math.min(1, left / duration))),
@@ -962,7 +966,7 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
     removeListeners();
     button.hidden = true;
     button.disabled = false;
-    button.classList.remove("undo-expiring", "undo-paused");
+    button.classList.remove("undo-expiring", "undo-paused", "undo-urgent");
   };
   cancel.isActive = () => !finished && remaining() > 0;
   return cancel;

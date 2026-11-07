@@ -2819,6 +2819,12 @@ aside .owner {
   transform-origin: left;
   transform: scaleX(var(--undo-remaining, 1));
 }
+.project-type-filters #undo-read-updates.undo-urgent,
+.project-type-filters #undo-favorite-order.undo-urgent {
+  color: #ffb4b4;
+  border-color: #e16b75;
+  background-color: #4d202b;
+}
 .project-type-filters #undo-read-updates.undo-paused,
 .project-type-filters #undo-favorite-order.undo-paused {
   color: #ffe2a3;

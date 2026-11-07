@@ -114,6 +114,9 @@ async function restoreViewPosition(revision) {
     connection.open = true;
     connection.querySelector("summary").focus({ preventScroll: true });
     connection.scrollIntoView({ block: "center", behavior: "instant" });
+    const card = connection.closest(".ai-card");
+    card.classList.add("connection-arrival");
+    setTimeout(() => card.classList.remove("connection-arrival"), 2800);
     restoringPosition = false;
     return;
   }
@@ -237,8 +240,9 @@ function setPageVisibility(id) {
 
 function connectionFromHash() {
   if (!["/team", "/settings"].includes(location.pathname)) return null;
-  if (!/^#connect-(codex|claude|gemini)$/.test(location.hash)) return null;
-  return document.getElementById(location.hash.slice(1));
+  if (!/^#connect-[a-z0-9-]+$/.test(location.hash)) return null;
+  const target = document.getElementById(location.hash.slice(1));
+  return target?.matches("#ai-team .ai-connect") ? target : null;
 }
 
 function connectChat(id) {

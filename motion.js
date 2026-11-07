@@ -112,3 +112,66 @@ reducedMotion.addEventListener("change", scheduleMeteor);
 window.addEventListener("pagehide", stopMeteor);
 window.addEventListener("pageshow", scheduleMeteor);
 scheduleMeteor();
+
+// Rotate the home cards using the same identities and settings as the AI directory.
+const floatingCards = [...document.querySelectorAll(".agent-tag")];
+const aiRoles = {
+  codex: "PLAN & DIRECT",
+  claude: "BUILD & DEVELOP",
+  gemini: "REVIEW & REFINE",
+  cursor: "CODE & REFACTOR",
+  v0: "UI & PROTOTYPE",
+  midjourney: "ART & CONCEPT",
+  notion: "DOCS & ORGANIZE",
+  perplexity: "SEARCH & RESEARCH",
+  copilot: "CODE & ASSIST",
+  stability: "IMAGE & DESIGN",
+  meshy: "3D & ASSETS",
+  tripo: "3D & CREATE",
+};
+const rotatingAIs = [...document.querySelectorAll("#ai-team .ai-card")].map(
+  (card) => ({
+    id: card.querySelector(".connection").id,
+    name: card.querySelector("strong").textContent,
+    logo: card.querySelector(".ai-brand-logo").getAttribute("src"),
+  }),
+);
+const initialIds = ["codex", "claude", "gemini"];
+rotatingAIs.sort((a, b) => {
+  const rank = (id) =>
+    initialIds.includes(id)
+      ? initialIds.indexOf(id)
+      : initialIds.length + Object.keys(aiRoles).indexOf(id);
+  return rank(a.id) - rank(b.id);
+});
+let rotationIndex = 0;
+let rotationTimer;
+function scheduleAIRotation() {
+  clearTimeout(rotationTimer);
+  if (location.pathname !== "/" || document.hidden) return;
+  rotationTimer = setTimeout(() => {
+    if (!floatingCards.some((card) => card.matches(":hover, :focus-within"))) {
+      rotationIndex =
+        (rotationIndex + floatingCards.length) % rotatingAIs.length;
+      floatingCards.forEach((card, index) => {
+        const ai = rotatingAIs[(rotationIndex + index) % rotatingAIs.length];
+        card.href = "/team#connect-" + ai.id;
+        card.setAttribute("aria-label", ai.name + " 연결 설정");
+        card.querySelector("img").src = ai.logo;
+        card.querySelector("b").textContent = ai.name;
+        card.querySelector("small").textContent =
+          aiRoles[ai.id] || "AI WORKSPACE";
+        if (!reducedMotion.matches)
+          card.animate([{ opacity: 0.25 }, { opacity: 1 }], {
+            duration: 420,
+            easing: "ease-out",
+          });
+      });
+    }
+    scheduleAIRotation();
+  }, 8000);
+}
+document.addEventListener("visibilitychange", scheduleAIRotation);
+window.addEventListener("pagehide", () => clearTimeout(rotationTimer));
+window.addEventListener("pageshow", scheduleAIRotation);
+scheduleAIRotation();

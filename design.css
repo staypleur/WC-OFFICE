@@ -3008,6 +3008,39 @@ body {
   position: absolute;
   inset: 0;
 }
+.night-shooting-star {
+  position: absolute;
+  left: 76%;
+  top: 16%;
+  width: clamp(60px, 9vw, 120px);
+  height: 1px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #e0f5ff, #8acbff80 20%, transparent);
+  box-shadow: 0 0 5px #a9dcff30;
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(-27deg);
+  animation: quiet-shooting-star 38s linear 9s infinite;
+}
+@keyframes quiet-shooting-star {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(-27deg);
+  }
+  0.7% {
+    opacity: 0.5;
+  }
+  3.8%,
+  100% {
+    opacity: 0;
+    transform: translate3d(-240px, 120px, 0) rotate(-27deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .night-shooting-star {
+    animation: none;
+  }
+}
 .night-stars::before,
 .night-stars::after {
   content: "";

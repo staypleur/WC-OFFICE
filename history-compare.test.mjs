@@ -12,6 +12,22 @@ const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
 
+test("project types persist independently for each list and reject invalid values", () => {
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  const types = createComparisonPreference(storage, "projectType");
+  types.set("project-list:/projects/active", "unity");
+  types.set("project-list:/projects/held", "roblox");
+  const reloaded = createComparisonPreference(storage, "projectType");
+  assert.equal(reloaded.get("project-list:/projects/active"), "unity");
+  assert.equal(reloaded.get("project-list:/projects/held"), "roblox");
+  types.set("project-list:/projects/active", "invalid");
+  assert.equal(types.get("project-list:/projects/active"), "unity");
+});
+
 test("expanded panels and per-page scroll anchors survive reload, including closed state", () => {
   const data = new Map();
   const storage = {

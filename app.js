@@ -28,6 +28,10 @@ const projectNameQueries = createComparisonPreference(
   comparisonStorage,
   "query",
 );
+const projectTypePreferences = createComparisonPreference(
+  comparisonStorage,
+  "projectType",
+);
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -678,12 +682,24 @@ $("#projects").addEventListener(
 );
 function applyProjectNameSearch() {
   const query = $("#project-name-query").value.trim();
+  const type =
+    projectTypePreferences.get("project-list:" + location.pathname) || "all";
+  document
+    .querySelectorAll("[data-project-type-filter]")
+    .forEach((button) =>
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.projectTypeFilter === type),
+      ),
+    );
   const cards = [...document.querySelectorAll("#projects .project-accordion")];
   let matched = 0;
   for (const card of cards) {
     const p = projects.find((project) => project.id === card.dataset.project);
     const parts = searchParts(p?.name || p?.goal || "", query);
-    card.hidden = !!query && !parts.some((part) => part.match);
+    card.hidden =
+      (!!query && !parts.some((part) => part.match)) ||
+      (type !== "all" && p?.type !== type);
     card.querySelector(".project-identity strong").innerHTML = parts
       .map((part) =>
         part.match
@@ -695,17 +711,27 @@ function applyProjectNameSearch() {
       .join("");
     if (!card.hidden) matched++;
   }
-  $("#count").textContent = query
+  const filtered = !!query || type !== "all";
+  $("#count").textContent = filtered
     ? `${matched} / ${cards.length}개`
     : `${cards.length}개`;
-  $("#project-search-status").textContent = query
-    ? `${matched}개 검색됨 · 펼치기·접기는 검색 결과에만 적용`
+  $("#project-search-status").textContent = filtered
+    ? `${matched}개 표시 · 펼치기·접기는 표시된 프로젝트에만 적용`
     : "";
-  $("#project-search-empty").hidden = !query || matched > 0;
+  $("#project-search-empty").hidden = !filtered || matched > 0;
   $("#clear-project-name").disabled = !$("#project-name-query").value.length;
   $("#expand-projects").disabled = !matched;
   $("#collapse-projects").disabled = !matched;
 }
+$("#project-type-filters").onclick = (event) => {
+  const button = event.target.closest("[data-project-type-filter]");
+  if (!button) return;
+  projectTypePreferences.set(
+    "project-list:" + location.pathname,
+    button.dataset.projectTypeFilter,
+  );
+  applyProjectNameSearch();
+};
 $("#project-name-query").addEventListener("input", (event) => {
   projectNameQueries.set(
     "project-list:" + location.pathname,

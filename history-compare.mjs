@@ -5,6 +5,10 @@ export function historyKey(entry) {
 export function createComparisonPreference(storage, field) {
   const memory = new Map();
   const normalize = (value) => {
+    if (field === "projectType")
+      return ["all", "unity", "web", "roblox"].includes(value)
+        ? value
+        : undefined;
     if (field === "open") return typeof value === "boolean" ? value : undefined;
     if (
       field === "position" &&

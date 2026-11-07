@@ -2658,3 +2658,35 @@ aside .owner {
   border-radius: 4px;
   font-weight: inherit;
 }
+.project-type-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 4px;
+}
+.project-type-filters button {
+  border: 1px solid #304b66;
+  border-radius: 20px;
+  padding: 9px 20px;
+  color: #a7c3dc;
+  background: #101f30;
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+.project-type-filters button:hover {
+  border-color: #73b9e6;
+}
+.project-type-filters button[aria-pressed="true"] {
+  background: linear-gradient(120deg, #24517a, #1c3d5c);
+  border-color: #82cfff;
+  color: #e5f6ff;
+  box-shadow: 0 0 16px #65bcff12;
+}
+.project-type-filters button:focus-visible {
+  outline: 2px solid #a4e4ff;
+  outline-offset: 3px;
+}

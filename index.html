@@ -128,8 +128,47 @@
             aria-live="polite"
           ></span>
         </div>
+        <div
+          id="project-type-filters"
+          class="project-type-filters"
+          role="group"
+          aria-label="프로젝트 유형 필터"
+        >
+          <button
+            type="button"
+            data-project-type-filter="all"
+            aria-pressed="true"
+            aria-controls="projects"
+          >
+            전체
+          </button>
+          <button
+            type="button"
+            data-project-type-filter="unity"
+            aria-pressed="false"
+            aria-controls="projects"
+          >
+            Unity
+          </button>
+          <button
+            type="button"
+            data-project-type-filter="web"
+            aria-pressed="false"
+            aria-controls="projects"
+          >
+            Web
+          </button>
+          <button
+            type="button"
+            data-project-type-filter="roblox"
+            aria-pressed="false"
+            aria-controls="projects"
+          >
+            Roblox
+          </button>
+        </div>
         <p id="project-search-empty" class="project-search-empty" hidden>
-          일치하는 프로젝트가 없습니다. 다른 이름으로 검색해주세요.
+          일치하는 프로젝트가 없습니다. 검색어나 유형을 변경해주세요.
         </p>
       </div>
       <div id="projects"></div>

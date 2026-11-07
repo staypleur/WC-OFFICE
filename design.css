@@ -1764,6 +1764,35 @@ aside .owner {
   flex: 1;
   min-width: 0;
 }
+.project-favorite {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #314b67;
+  border-radius: 12px;
+  background: #122238;
+  color: #91aac4;
+  font-size: 23px;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background 0.2s,
+    border-color 0.2s;
+}
+.project-favorite:hover,
+.project-favorite[aria-pressed="true"] {
+  color: #91ddff;
+  border-color: #469dcc;
+  background: #15344e;
+}
+.project-favorite:focus-visible {
+  outline: 2px solid #91ddff;
+  outline-offset: 3px;
+}
+.project-accordion.is-favorite {
+  border-color: #397699;
+}
 .project-identity small {
   color: #82bfeb;
   font-size: 10px;

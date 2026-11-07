@@ -41,6 +41,10 @@ const projectSortDirections = createComparisonPreference(
   comparisonStorage,
   "projectSortDirection",
 );
+const projectFavorites = createComparisonPreference(
+  comparisonStorage,
+  "favorite",
+);
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -422,7 +426,9 @@ async function refresh() {
             escape(p.name || p.goal) +
             '</strong></span><span class="project-progress">' +
             escape(s.progress) +
-            '</span><span class="accordion-arrow">⌄</span></summary><div class="project-details"><div class="report-grid"><div><small>진행 상황</small><p>' +
+            '</span><button type="button" class="project-favorite" data-favorite="' +
+            escape(p.id) +
+            '" aria-label="즐겨찾기" aria-pressed="false">☆</button><span class="accordion-arrow">⌄</span></summary><div class="project-details"><div class="report-grid"><div><small>진행 상황</small><p>' +
             escape(s.progress) +
             "</p><span>WC Office 완료 작업 " +
             s.completed +
@@ -753,10 +759,31 @@ function applyProjectSort() {
   const container = $("#projects");
   const cards = [...container.querySelectorAll(".project-accordion")];
   const byId = new Map(cards.map((card) => [card.dataset.project, card]));
+  const favorites = new Set(
+    projects
+      .filter((project) => projectFavorites.get(project.id))
+      .map((project) => project.id),
+  );
+  for (const card of cards) {
+    const selected = favorites.has(card.dataset.project);
+    const button = card.querySelector("[data-favorite]");
+    const name =
+      projects.find((project) => project.id === card.dataset.project)?.name ||
+      "프로젝트";
+    button.textContent = selected ? "★" : "☆";
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute(
+      "aria-label",
+      name + (selected ? " 즐겨찾기 해제" : " 즐겨찾기 추가"),
+    );
+    button.title = selected ? "즐겨찾기 해제" : "즐겨찾기 추가";
+    card.classList.toggle("is-favorite", selected);
+  }
   const sorted = sortProjects(
     projects.filter((project) => byId.has(project.id)),
     order,
     direction,
+    favorites,
   );
   if (
     sorted.some(
@@ -833,6 +860,15 @@ function setAllProjectsExpanded(open) {
 $("#expand-projects").onclick = () => setAllProjectsExpanded(true);
 $("#collapse-projects").onclick = () => setAllProjectsExpanded(false);
 $("#projects").onclick = async (event) => {
+  const favorite = event.target.closest("[data-favorite]");
+  if (favorite) {
+    event.preventDefault();
+    const id = favorite.dataset.favorite;
+    projectFavorites.set(id, !projectFavorites.get(id));
+    applyProjectSort();
+    favorite.focus({ preventScroll: true });
+    return;
+  }
   const clearSearch = event.target.closest(
     "[data-search-clear], [data-search-reset]",
   );

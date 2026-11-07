@@ -13,6 +13,45 @@ const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
 
+test("favorites stay first in either direction and persist independently", () => {
+  const projects = [
+    { id: "a", name: "Alpha", updatedAt: "2026-01-01" },
+    { id: "b", name: "Beta", updatedAt: "2026-02-01" },
+    { id: "c", name: "Charlie", updatedAt: "2026-03-01" },
+  ];
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  const preferences = createComparisonPreference(storage, "favorite");
+  preferences.set("a", true);
+  preferences.set("c", true);
+  preferences.set("a", "invalid");
+  const restored = createComparisonPreference(storage, "favorite");
+  assert.equal(restored.get("a"), true);
+  assert.equal(restored.get("b"), undefined);
+  const favorites = new Set(
+    projects.filter((p) => restored.get(p.id)).map((p) => p.id),
+  );
+  for (const order of ["name", "recent"]) {
+    assert.deepEqual(
+      sortProjects(projects, order, "asc", favorites).map((p) => p.id),
+      ["a", "c", "b"],
+    );
+    assert.deepEqual(
+      sortProjects(projects, order, "desc", favorites).map((p) => p.id),
+      ["c", "a", "b"],
+    );
+  }
+  restored.set("a", false);
+  assert.equal(createComparisonPreference(storage, "favorite").get("a"), false);
+  assert.deepEqual(
+    projects.map((p) => p.id),
+    ["a", "b", "c"],
+  );
+});
+
 test("project sorting uses real activity or report updates, not unchanged checks", () => {
   const projects = [
     {

@@ -13,7 +13,8 @@ export function createComparisonPreference(storage, field) {
       return ["all", "unity", "web", "roblox"].includes(value)
         ? value
         : undefined;
-    if (field === "open") return typeof value === "boolean" ? value : undefined;
+    if (field === "open" || field === "favorite")
+      return typeof value === "boolean" ? value : undefined;
     if (
       field === "position" &&
       value &&
@@ -87,6 +88,7 @@ export function sortProjects(
   projects,
   order = "recent",
   direction = order === "name" ? "asc" : "desc",
+  favorites = new Set(),
 ) {
   const timestamp = (project) =>
     [
@@ -112,6 +114,7 @@ export function sortProjects(
   const multiplier = direction === "asc" ? 1 : -1;
   return [...projects].sort(
     (a, b) =>
+      Number(favorites.has(b.id)) - Number(favorites.has(a.id)) ||
       multiplier *
         (order === "name" ? byName(a, b) : timestamp(a) - timestamp(b)) ||
       byName(a, b),

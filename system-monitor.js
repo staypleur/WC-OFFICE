@@ -1,6 +1,6 @@
 const systemHistory = [];
 let systemTimer, systemRequest, systemFrame;
-let displayed = { cpu: null, memory: null },
+let displayed = { cpu: null, memory: null, gpu: null, temperature: null },
   tweenFrom = { ...displayed },
   tweenAt = 0;
 const systemText = (id, value) => {
@@ -19,7 +19,7 @@ function drawSystemChart(id, key) {
       .filter((p) => p[key] !== null)
       .map(
         (p) =>
-          `${Math.max(0, ((p.time - cutoff) / 180000) * 300).toFixed(1)},${(76 - p[key] * 0.72).toFixed(1)}`,
+          `${Math.max(0, ((p.time - cutoff) / 180000) * 300).toFixed(1)},${(76 - (Math.min(key === "temperature" ? 120 : 100, p[key]) / (key === "temperature" ? 120 : 100)) * 72).toFixed(1)}`,
       )
       .join(" "),
   );
@@ -72,10 +72,28 @@ async function pollSystem() {
       "system-status",
       "실시간 · " + new Date(data.sampledAt).toLocaleTimeString("ko-KR"),
     );
+    const gpu = data.gpu?.devices?.[0];
+    systemText("system-gpu-model", gpu?.name || "확인 불가");
+    systemText(
+      "system-gpu-vram",
+      gpu?.memoryTotal == null ? "측정 불가" : gib(gpu.memoryTotal),
+    );
+    systemText(
+      "system-gpu-memory",
+      gpu?.memoryUsed == null || gpu?.memoryTotal == null
+        ? "VRAM 측정 불가"
+        : "VRAM " + gib(gpu.memoryUsed) + " 사용 / " + gib(gpu.memoryTotal),
+    );
+    systemText(
+      "system-gpu-source",
+      data.gpu?.error || "최근 3분 · 0–120°C · NVIDIA 드라이버 측정",
+    );
     systemHistory.push({
       time: Date.now(),
       cpu: data.cpu.percent,
       memory: data.memory.percent,
+      gpu: gpu?.utilization ?? null,
+      temperature: gpu?.temperature ?? null,
     });
     renderProcessRanks(data.processes);
     startSystemAnimation();
@@ -116,7 +134,7 @@ function startSystemAnimation() {
         ? 1
         : Math.min(1, (Date.now() - tweenAt) / 900);
       const ease = 1 - Math.pow(1 - t, 3);
-      for (const key of ["cpu", "memory"]) {
+      for (const key of ["cpu", "memory", "gpu", "temperature"]) {
         displayed[key] =
           target[key] === null
             ? null
@@ -124,7 +142,11 @@ function startSystemAnimation() {
               (target[key] - (tweenFrom[key] ?? target[key])) * ease;
         systemText(
           "system-" + key,
-          displayed[key] === null ? "측정 중" : displayed[key].toFixed(1) + "%",
+          displayed[key] === null
+            ? key === "cpu"
+              ? "측정 중"
+              : "측정 불가"
+            : displayed[key].toFixed(1) + (key === "temperature" ? "°C" : "%"),
         );
         document.getElementById("system-" + key + "-bar").value =
           displayed[key] ?? 0;

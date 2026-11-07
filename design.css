@@ -3591,3 +3591,6 @@ html[data-project-loading] #project-list {
     grid-template-columns: 1fr;
   }
 }
+.system-gpu-metrics {
+  margin-top: 22px;
+}

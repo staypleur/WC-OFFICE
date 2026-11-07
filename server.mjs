@@ -1,5 +1,6 @@
 import http from "node:http";
 import { systemSnapshot, processSnapshot } from "./system-monitor.mjs";
+import { gpuSnapshot } from "./gpu-monitor.mjs";
 import { createMarketing } from "./marketing.mjs";
 import { createConnectionMonitor } from "./connection-status.mjs";
 import path from "node:path";
@@ -425,10 +426,11 @@ const server = http.createServer(async (req, res) => {
       );
     if (req.method === "GET" && req.url === "/api/system") {
       res.setHeader("Cache-Control", "no-store");
-      return send(res, 200, {
-        ...systemSnapshot(),
-        processes: await processSnapshot(),
-      });
+      const [processes, gpu] = await Promise.all([
+        processSnapshot(),
+        gpuSnapshot(),
+      ]);
+      return send(res, 200, { ...systemSnapshot(), processes, gpu });
     }
     if (req.method === "GET" && req.url === "/api/connections") {
       res.setHeader("Cache-Control", "no-store");

@@ -7,10 +7,60 @@ import {
   redactSource,
   parseReport,
   changeReport,
+  archiveRepositoryReport,
 } from "./repository-sync.mjs";
 
 const old = "a".repeat(40),
   next = "b".repeat(40);
+
+test("history preserves dated snapshots and deduplicates a commit across reloads", () => {
+  const project = {
+    repository: "https://github.com/user/repo.git",
+    repositoryReport: {
+      commit: old,
+      checkedAt: "2026-11-07T17:00:00Z",
+      summary: "Original",
+      changeReport: { state: "changed", items: ["First change"] },
+    },
+  };
+  archiveRepositoryReport(project);
+  project.repositoryReport.summary = "Modified";
+  project.repositoryReport.changeReport.items[0] = "Mutated";
+  archiveRepositoryReport(project);
+  assert.equal(project.repositoryHistory.length, 1);
+  assert.equal(project.repositoryHistory[0].summary, "Original");
+  assert.deepEqual(project.repositoryHistory[0].changeReport.items, [
+    "First change",
+  ]);
+  const reloaded = JSON.parse(JSON.stringify(project));
+  archiveRepositoryReport(reloaded);
+  assert.equal(reloaded.repositoryHistory.length, 1);
+  reloaded.repositoryReport.commit = next;
+  reloaded.repositoryReport.checkedAt = "2026-11-08T17:00:00Z";
+  archiveRepositoryReport(reloaded);
+  assert.equal(reloaded.repositoryHistory.length, 2);
+  assert.equal(reloaded.repositoryHistory[0].checkedAt, "2026-11-07T17:00:00Z");
+});
+
+test("refresh archives existing and new reports; unchanged and failed refreshes add no duplicates", async () => {
+  let fail = false;
+  const f = fixture({
+    getHead: async () => {
+      if (fail) throw Error("offline");
+      return { sha: next, branch: "main", message: "new" };
+    },
+  });
+  f.project.repositoryReport.checkedAt = "2026-11-07T17:00:00Z";
+  await f.sync.refresh("one");
+  assert.deepEqual(
+    f.project.repositoryHistory.map((entry) => entry.commit),
+    [old, next],
+  );
+  await f.sync.refresh("one");
+  fail = true;
+  await f.sync.refresh("one");
+  assert.equal(f.project.repositoryHistory.length, 2);
+});
 
 test("change summaries distinguish compared commits, first reports and unavailable history", () => {
   const latest = { sha: next, message: "Added refresh" };

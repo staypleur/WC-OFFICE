@@ -299,6 +299,32 @@ export function changeReport(previous, latest, evidence, summary, checkedAt) {
   };
 }
 
+export function archiveRepositoryReport(project) {
+  const report = project.repositoryReport;
+  if (!report?.commit || !report.checkedAt) return;
+  const repository = repositorySlug(project.repository);
+  if (!repository) return;
+  project.repositoryHistory ||= [];
+  if (
+    project.repositoryHistory.some(
+      (entry) =>
+        entry.repository === repository && entry.commit === report.commit,
+    )
+  )
+    return;
+  project.repositoryHistory.push(
+    structuredClone({
+      repository,
+      commit: report.commit,
+      branch: report.branch,
+      checkedAt: report.checkedAt,
+      stage: report.stage,
+      summary: report.summary,
+      changeReport: report.changeReport || null,
+    }),
+  );
+}
+
 export function createRepositorySync({
   projects,
   save,
@@ -370,6 +396,7 @@ export function createRepositorySync({
     const repository = project.repository;
     const valid = () => !project.deletedAt && project.repository === repository;
     try {
+      archiveRepositoryReport(project);
       project.repositorySync = {
         ...project.repositorySync,
         state: "checking",
@@ -419,6 +446,7 @@ export function createRepositorySync({
         automatic: true,
         sourceScope: "최신 변경과 선별 코드·문서 발췌 (전체 실행 검증 아님)",
       };
+      archiveRepositoryReport(project);
       project.repositorySync = {
         state: "current",
         noChanges: false,

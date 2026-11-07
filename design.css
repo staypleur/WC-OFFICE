@@ -1995,3 +1995,46 @@ aside .owner {
     margin-left: 0;
   }
 }
+.repository-history {
+  margin: 16px 0;
+  border: 1px solid #294362;
+  border-radius: 12px;
+  padding: 16px 20px;
+  background: #0c1726;
+}
+.repository-history summary {
+  cursor: pointer;
+  color: #cee9ff;
+  font-size: 13px;
+}
+.repository-history summary span {
+  color: #7c9bb8;
+  margin-left: 8px;
+  font-size: 11px;
+}
+.history-day {
+  padding: 12px 0;
+  border-top: 1px solid #25364b;
+}
+.history-entry {
+  margin: 14px 0 4px 8px;
+  padding: 0 0 0 16px;
+  border-left: 2px solid #437eb4;
+}
+.history-entry small {
+  color: #8da9c3;
+  font-size: 11px;
+}
+.history-entry h4 {
+  font-size: 13px;
+  margin: 8px 0;
+}
+.history-entry p,
+.history-entry li {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #bed0e2;
+}
+.history-entry ul {
+  padding-left: 18px;
+}

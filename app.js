@@ -234,6 +234,11 @@ async function refresh() {
   );
   const listView = JSON.stringify(visibleProjects);
   if ($("#projects").dataset.view !== listView) {
+    const expandedHistory = new Set(
+      [...document.querySelectorAll("[data-history-key][open]")].map(
+        (node) => node.dataset.historyKey,
+      ),
+    );
     $("#projects").innerHTML =
       visibleProjects
         .map((p) => {
@@ -291,6 +296,9 @@ async function refresh() {
         })
         .join("") || '<div class="empty">프로젝트를 만들어 시작하세요.</div>';
     $("#projects").dataset.view = listView;
+    document.querySelectorAll("[data-history-key]").forEach((node) => {
+      node.open = expandedHistory.has(node.dataset.historyKey);
+    });
   }
   const deleted = await request("/api/projects/deleted");
   $("#deleted-project-list").innerHTML =
@@ -734,6 +742,78 @@ function renderChat(project) {
   $("#current-work").classList.toggle("working", project.status === "작업 중");
 }
 
+function repositoryHistoryHtml(p) {
+  const entries = [...(p.repositoryHistory || [])].sort(
+    (a, b) => new Date(b.checkedAt) - new Date(a.checkedAt),
+  );
+  const groups = new Map();
+  for (const entry of entries) {
+    const date = new Date(entry.checkedAt).toLocaleDateString("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    if (!groups.has(date)) groups.set(date, []);
+    groups.get(date).push(entry);
+  }
+  return (
+    '<details class="repository-history" data-history-key="' +
+    escape(p.id + ":history") +
+    '"><summary>이전 변경 기록 <span>' +
+    entries.length +
+    "건</span></summary>" +
+    '<p class="notice">갱신 확인일 기준 · 한국 시간</p>' +
+    ([...groups]
+      .map(
+        ([date, items]) =>
+          '<details class="history-day" data-history-key="' +
+          escape(p.id + ":" + date) +
+          '"><summary>' +
+          escape(date) +
+          " <span>" +
+          items.length +
+          "건</span></summary>" +
+          items
+            .map(
+              (entry) =>
+                '<article class="history-entry"><small>' +
+                escape(
+                  new Date(entry.checkedAt).toLocaleTimeString("ko-KR", {
+                    timeZone: "Asia/Seoul",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                ) +
+                " · " +
+                escape(entry.commit.slice(0, 8)) +
+                "</small><h4>" +
+                escape(entry.stage || "진행 요약") +
+                "</h4>" +
+                (entry.changeReport?.state === "changed"
+                  ? "<ul>" +
+                    entry.changeReport.items
+                      .map((item) => "<li>" + escape(item) + "</li>")
+                      .join("") +
+                    "</ul>"
+                  : '<p class="notice">' +
+                    (entry.changeReport?.state === "unavailable"
+                      ? "커밋 비교 불가 · 당시 진행 요약"
+                      : "저장 당시 진행 요약") +
+                    "</p>") +
+                "<p>" +
+                escape(entry.summary || "") +
+                "</p></article>",
+            )
+            .join("") +
+          "</details>",
+      )
+      .join("") ||
+      '<p class="notice">아직 기록이 없습니다. 새로고침하면 현재 요약부터 보관합니다.</p>') +
+    "</details>"
+  );
+}
+
 function repositoryReportHtml(p) {
   const r = p.repositoryReport;
   const sync = p.repositorySync || {};
@@ -806,6 +886,7 @@ function repositoryReportHtml(p) {
   return (
     syncHtml +
     deltaHtml +
+    repositoryHistoryHtml(p) +
     '<section class="repository-report"><h3>GitHub 코드 분석</h3><p>' +
     escape(r.summary) +
     '</p><div class="repository-columns">' +

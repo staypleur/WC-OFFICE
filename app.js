@@ -165,7 +165,7 @@ function setPageVisibility(id) {
     [".hero", ["/"]],
     [
       "#project-list,#projects",
-      ["/", "/projects", "/projects/active", "/projects/held"],
+      ["/projects", "/projects/active", "/projects/held"],
     ],
     [
       "#project-hub",

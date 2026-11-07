@@ -9,8 +9,11 @@ function setPageVisibility(id) {
   const page = id ? "room" : location.pathname;
   const groups = [
     [".hero", ["/"]],
-    ["#project-list,#projects,#project-report", ["/", "/projects/active"]],
-    ["#project-hub", ["/projects"]],
+    [
+      "#project-list,#projects,#project-report",
+      ["/", "/projects", "/projects/active"],
+    ],
+    ["#project-hub", ["/projects", "/new", "/projects/active", "room"]],
     ["#marketing-page", ["/marketing"]],
     [".section-index,#form", ["/new"]],
     ["#ai-team", ["/team", "/settings"]],
@@ -33,6 +36,13 @@ function setPageVisibility(id) {
           : page);
     link.classList.toggle("nav", active);
     link.classList.toggle("side-link", !active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  document.querySelectorAll(".project-subnav a").forEach((link) => {
+    const active =
+      new URL(link.href).pathname ===
+      (page === "/new" ? "/new" : "/projects/active");
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });

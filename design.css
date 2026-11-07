@@ -13,7 +13,9 @@
 .room-toolbar {
   display: none;
 }
-.project-mode main > :not(#workspace):not(#error):not(.room-toolbar) {
+.project-mode
+  main
+  > :not(#workspace):not(#error):not(.room-toolbar):not(#project-hub) {
   display: none !important;
 }
 .project-mode .room-toolbar {
@@ -1700,4 +1702,33 @@ aside .owner {
   .hub-actions strong {
     font-size: 20px;
   }
+}
+#project-hub {
+  padding: 28px 0 0;
+  margin-bottom: 30px;
+}
+#project-hub h1 {
+  margin: 0 0 24px;
+}
+.project-subnav {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid #ffffff18;
+}
+.project-subnav a {
+  padding: 14px 4px 18px;
+  color: #8fa6c1;
+  font-size: 14px;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.project-subnav a:hover {
+  color: #def3ff;
+}
+.project-subnav a[aria-current="page"] {
+  color: #9addff;
+  border-bottom-color: #7dd5ff;
 }

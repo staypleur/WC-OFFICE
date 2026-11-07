@@ -69,12 +69,10 @@
       </section>
       <section id="project-hub">
         <h1>프로젝트</h1>
-        <div class="hub-actions">
-          <a href="/new"><span>01</span><strong>새 프로젝트</strong><b>↗</b></a
-          ><a href="/projects/active"
-            ><span>02</span><strong>진행 프로젝트</strong><b>↗</b></a
-          >
-        </div>
+        <nav class="project-subnav" aria-label="프로젝트 하위 메뉴">
+          <a href="/new">새 프로젝트</a>
+          <a href="/projects/active">진행 프로젝트</a>
+        </nav>
       </section>
       <section id="marketing-page">
         <h1>마케팅</h1>
@@ -213,7 +211,7 @@
       <section id="ai-team" class="team-directory">
         <div class="section-head">
           <h1>AI</h1>
-          <span class="muted">11개 서비스</span>
+          <span class="muted">12개 서비스</span>
         </div>
         <form id="settings-form"></form>
         <p id="settings-status" role="status"></p>
@@ -401,6 +399,29 @@
               <summary>연결 설정</summary>
               <div data-provider-fields="meshy"></div>
               <button type="submit" form="settings-form">설정 저장</button>
+            </details>
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="tripo">자동 연결 미설정</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/tripo-color.svg"
+              alt="Tripo.ai 로고"
+              width="48"
+              height="48"
+            /><strong>Tripo.ai</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">
+                현재 Tripo Studio에서 수동으로 사용합니다. WC Office의 자동 생성
+                작업에는 아직 연결되지 않았습니다.
+              </p>
+              <a
+                href="https://studio.tripo3d.ai/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Tripo Studio 열기 ↗</a
+              >
             </details>
           </article>
         </section>

@@ -151,7 +151,7 @@
           id="project-type-filters"
           class="project-type-filters"
           role="group"
-          aria-label="프로젝트 유형 필터"
+          aria-label="프로젝트 필터"
         >
           <button
             type="button"
@@ -187,15 +187,23 @@
           </button>
           <button
             type="button"
+            id="favorites-only"
+            aria-pressed="false"
+            aria-controls="projects"
+          >
+            ★ 즐겨찾기만
+          </button>
+          <button
+            type="button"
             id="reset-project-filters"
             class="project-filter-reset"
-            title="이름 검색어와 유형 필터 초기화"
+            title="이름 검색어와 유형·즐겨찾기 필터 초기화"
           >
             전체 초기화
           </button>
         </div>
         <p id="project-search-empty" class="project-search-empty" hidden>
-          일치하는 프로젝트가 없습니다. 검색어나 유형을 변경해주세요.
+          일치하는 프로젝트가 없습니다. 검색어나 필터를 변경해주세요.
         </p>
       </div>
       <div id="projects"></div>

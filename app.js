@@ -695,9 +695,16 @@ $("#projects").addEventListener(
   },
   true,
 );
+const favoritesOnlyPreferences = createComparisonPreference(
+  comparisonStorage,
+  "favoritesOnly",
+);
 function applyProjectNameSearch() {
   applyProjectSort();
   const query = $("#project-name-query").value.trim();
+  const favoritesOnly =
+    favoritesOnlyPreferences.get("project-list:" + location.pathname) === true;
+  $("#favorites-only").setAttribute("aria-pressed", String(favoritesOnly));
   const type =
     projectTypePreferences.get("project-list:" + location.pathname) || "all";
   document
@@ -715,11 +722,14 @@ function applyProjectNameSearch() {
     const p = projects.find((project) => project.id === card.dataset.project);
     const parts = searchParts(p?.name || p?.goal || "", query);
     const matchesName = !query || parts.some((part) => part.match);
-    if (matchesName) {
+    const matchesFavorite =
+      !favoritesOnly || projectFavorites.get(p?.id) === true;
+    if (matchesName && matchesFavorite) {
       typeCounts.all++;
       if (["unity", "web", "roblox"].includes(p?.type)) typeCounts[p.type]++;
     }
-    card.hidden = !matchesName || (type !== "all" && p?.type !== type);
+    card.hidden =
+      !matchesName || !matchesFavorite || (type !== "all" && p?.type !== type);
     card.querySelector(".project-identity strong").innerHTML = parts
       .map((part) =>
         part.match
@@ -734,7 +744,7 @@ function applyProjectNameSearch() {
   document.querySelectorAll("[data-project-type-count]").forEach((node) => {
     node.textContent = typeCounts[node.dataset.projectTypeCount];
   });
-  const filtered = !!query || type !== "all";
+  const filtered = !!query || type !== "all" || favoritesOnly;
   $("#count").textContent = filtered
     ? `${matched} / ${cards.length}개`
     : `${cards.length}개`;
@@ -744,7 +754,7 @@ function applyProjectNameSearch() {
   $("#project-search-empty").hidden = !filtered || matched > 0;
   $("#clear-project-name").disabled = !$("#project-name-query").value.length;
   $("#reset-project-filters").disabled =
-    !$("#project-name-query").value.length && type === "all";
+    !$("#project-name-query").value.length && type === "all" && !favoritesOnly;
   $("#expand-projects").disabled = !matched;
   $("#collapse-projects").disabled = !matched;
 }
@@ -807,6 +817,11 @@ $("#project-sort-direction").onchange = (event) => {
   );
   applyProjectSort();
 };
+$("#favorites-only").onclick = () => {
+  const key = "project-list:" + location.pathname;
+  favoritesOnlyPreferences.set(key, !favoritesOnlyPreferences.get(key));
+  applyProjectNameSearch();
+};
 $("#project-type-filters").onclick = (event) => {
   const button = event.target.closest("[data-project-type-filter]");
   if (!button) return;
@@ -833,6 +848,7 @@ $("#reset-project-filters").onclick = () => {
   $("#project-name-query").value = "";
   projectNameQueries.set("project-list:" + location.pathname, "");
   projectTypePreferences.set("project-list:" + location.pathname, "all");
+  favoritesOnlyPreferences.set("project-list:" + location.pathname, false);
   applyProjectNameSearch();
   $("#project-name-query").focus();
 };
@@ -865,8 +881,12 @@ $("#projects").onclick = async (event) => {
     event.preventDefault();
     const id = favorite.dataset.favorite;
     projectFavorites.set(id, !projectFavorites.get(id));
-    applyProjectSort();
-    favorite.focus({ preventScroll: true });
+    applyProjectNameSearch();
+    if (favorite.closest(".project-accordion").hidden) {
+      $("#favorites-only").focus({ preventScroll: true });
+    } else {
+      favorite.focus({ preventScroll: true });
+    }
     return;
   }
   const clearSearch = event.target.closest(

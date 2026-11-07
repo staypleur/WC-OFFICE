@@ -13,7 +13,7 @@ export function createComparisonPreference(storage, field) {
       return ["all", "unity", "web", "roblox"].includes(value)
         ? value
         : undefined;
-    if (field === "open" || field === "favorite")
+    if (field === "open" || field === "favorite" || field === "favoritesOnly")
       return typeof value === "boolean" ? value : undefined;
     if (
       field === "position" &&

@@ -196,7 +196,6 @@ function setPageVisibility(id) {
       new URL(link.href).pathname ===
       ([
         "room",
-        "/",
         "/new",
         "/projects/active",
         "/projects/held",

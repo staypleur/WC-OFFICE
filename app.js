@@ -10,7 +10,7 @@ function setPageVisibility(id) {
   const groups = [
     [".hero", ["/"]],
     [
-      "#project-list,#projects,#project-report",
+      "#project-list,#projects,#deleted-projects",
       ["/", "/projects", "/projects/active"],
     ],
     ["#project-hub", ["/projects", "/new", "/projects/active", "room"]],
@@ -197,32 +197,79 @@ async function refresh() {
           `<button data-marketing="${escape(p.id)}"><strong>${escape(p.name || p.goal)}</strong><span>홍보 기획 대화 ↗</span></button>`,
       )
       .join("") || '<p class="notice">새 프로젝트를 먼저 만들어주세요.</p>';
-  $("#projects").innerHTML =
-    projects
+  const openIds = new Set(
+    [...document.querySelectorAll(".project-accordion[open]")].map(
+      (node) => node.dataset.project,
+    ),
+  );
+  const listView = JSON.stringify(projects);
+  if ($("#projects").dataset.view !== listView) {
+    $("#projects").innerHTML =
+      projects
+        .map((p) => {
+          const s = projectSummary(p);
+          const type =
+            p.type === "unassigned" ? "유형 확인 필요" : p.type.toUpperCase();
+          const repoLink =
+            /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?$/.test(
+              p.repository || "",
+            )
+              ? '<a href="' +
+                escape(p.repository) +
+                '" target="_blank" rel="noopener noreferrer">GitHub 저장소 ↗</a>'
+              : "";
+          return (
+            '<details class="project-accordion" data-project="' +
+            escape(p.id) +
+            '" ' +
+            (openIds.has(p.id) ? "open" : "") +
+            '><summary><span class="project-identity"><small>' +
+            escape(type) +
+            "</small><strong>" +
+            escape(p.name || p.goal) +
+            '</strong></span><span class="project-progress">' +
+            escape(s.progress) +
+            '</span><span class="accordion-arrow">⌄</span></summary><div class="project-details"><div class="report-grid"><div><small>진행 상황</small><p>' +
+            escape(s.progress) +
+            "</p><span>완료 작업 " +
+            s.completed +
+            " / " +
+            s.total +
+            "</span></div><div><small>필요한 승인</small><p>" +
+            escape(s.approval) +
+            "</p></div><div><small>최근 결과 요약</small><p>" +
+            escape(s.result) +
+            '</p></div></div><div class="project-links"><a href="/projects/' +
+            escape(p.id) +
+            '">작업실 입장 ↗</a>' +
+            repoLink +
+            '<button type="button" class="delete-project" data-delete="' +
+            escape(p.id) +
+            '" ' +
+            (p.status === "작업 중" ? "disabled" : "") +
+            ">프로젝트 삭제</button></div></div></details>"
+          );
+        })
+        .join("") || '<div class="empty">프로젝트를 만들어 시작하세요.</div>';
+    $("#projects").dataset.view = listView;
+  }
+  const deleted = await request("/api/projects/deleted");
+  $("#deleted-project-list").innerHTML =
+    deleted
       .map(
         (p) =>
-          `<button class="project-choice ${p.id === reportId ? "selected" : ""}" aria-expanded="${p.id === reportId}" data-select="${escape(p.id)}"><small>${escape(p.type.toUpperCase())}</small><strong>${escape(p.name || p.goal)}</strong><span>${escape(projectSummary(p).progress)}</span></button>`,
+          '<div class="deleted-row"><span>' +
+          escape(p.name) +
+          '</span><button data-restore="' +
+          escape(p.id) +
+          '">복원</button></div>',
       )
-      .join("") || '<div class="empty">프로젝트를 만들어 시작하세요.</div>';
-  if (reportId) renderReport(reportId);
+      .join("") || '<p class="notice">삭제한 프로젝트가 없습니다.</p>';
   const project = projects.find((p) => p.id === selected);
   $("#workspace").hidden = !project;
   if (selected && !project)
     error("프로젝트를 찾지 못했습니다. 프로젝트 목록으로 돌아가주세요.");
   if (project) renderProject(project);
-}
-function renderReport(id) {
-  const p = projects.find((p) => p.id === id);
-  if (!p) return;
-  reportId = id;
-  const s = projectSummary(p);
-  $("#project-report").hidden = false;
-  $("#project-report").innerHTML =
-    `<div class="section-head"><h2>${escape(p.name)}</h2><a class="report-open" href="/projects/${escape(id)}">작업실 입장 ↗</a></div><div class="report-grid"><div><small>진행 상황</small><p>${escape(s.progress)}</p><span>완료 작업 ${s.completed} / ${s.total}</span></div><div><small>필요한 승인</small><p>${escape(s.approval)}</p></div><div><small>최근 결과 요약</small><p>${escape(s.result)}</p></div></div>`;
-  document.querySelectorAll("[data-select]").forEach((button) => {
-    button.classList.toggle("selected", button.dataset.select === id);
-    button.setAttribute("aria-expanded", String(button.dataset.select === id));
-  });
 }
 function renderProject(project) {
   if (project.id !== selected) return;
@@ -236,6 +283,7 @@ function renderProject(project) {
     $("#edit-goal").value = project.goal;
     $("#edit-repository").value = project.repository || "";
     $("#edit-developer").value = project.developer || "claude";
+    $("#edit-type").value = project.type;
     editingProject = project.id;
   }
   const view = JSON.stringify([
@@ -279,11 +327,15 @@ function renderProject(project) {
       )
       .at(-1)?.status !== "완료";
   $('#workspace [data-action="/api/build"]').textContent =
-    project.type === "unity"
-      ? "Unity 제작 · 컴파일"
-      : project.type === "roblox"
-        ? "Roblox 코드 제작"
-        : "Web 제작";
+    project.type === "unassigned"
+      ? "프로젝트 유형 설정 필요"
+      : project.type === "unity"
+        ? "Unity 제작 · 컴파일"
+        : project.type === "roblox"
+          ? "Roblox 코드 제작"
+          : "Web 제작";
+  $('#workspace [data-action="/api/build"]').disabled =
+    busy || project.type === "unassigned";
 }
 async function config() {
   const data = await request("/api/config");
@@ -374,10 +426,37 @@ $("#choose-folder").onclick = async (event) => {
     event.target.disabled = false;
   }
 };
+$("#projects").addEventListener(
+  "toggle",
+  (event) => {
+    if (event.target.matches(".project-accordion") && event.target.open)
+      reportId = event.target.dataset.project;
+  },
+  true,
+);
 $("#projects").onclick = async (event) => {
-  const button = event.target.closest("[data-select]");
-  if (button) {
-    renderReport(button.dataset.select);
+  const button = event.target.closest("[data-delete]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await request("/api/project/delete", { id: button.dataset.delete });
+    if (reportId === button.dataset.delete) reportId = null;
+    await refresh();
+  } catch (e) {
+    error(e.message);
+    button.disabled = false;
+  }
+};
+$("#deleted-project-list").onclick = async (event) => {
+  const button = event.target.closest("[data-restore]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await request("/api/project/restore", { id: button.dataset.restore });
+    await refresh();
+  } catch (e) {
+    error(e.message);
+    button.disabled = false;
   }
 };
 $("#chat-form").onsubmit = async (event) => {
@@ -409,6 +488,7 @@ $("#project-settings").onsubmit = async (event) => {
       goal: $("#edit-goal").value,
       repository: $("#edit-repository").value,
       developer: $("#edit-developer").value,
+      type: $("#edit-type").value,
     });
     await refresh();
   } catch (e) {

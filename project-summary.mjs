@@ -23,7 +23,9 @@ export function projectSummary(p) {
             ? "제작 완료 · 결과 확인 대기"
             : last
               ? `${last.title} · ${last.status}`
-              : "목표 설정 완료 · 대화 대기",
+              : p.repositoryImported
+                ? "저장소 등록 · 작업 현황 미확인"
+                : "목표 설정 완료 · 대화 대기",
     approval: p.approved
       ? "승인 완료"
       : ready

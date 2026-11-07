@@ -281,7 +281,8 @@ const server = http.createServer(async (req, res) => {
     const streamMatch = /^\/api\/projects\/([a-f0-9-]+)\/events$/.exec(req.url);
     if (req.method === "GET" && streamMatch) {
       const p = projects.find((project) => project.id === streamMatch[1]);
-      if (!p) return send(res, 404, { error: "프로젝트를 찾지 못했습니다." });
+      if (!p || p.deletedAt)
+        return send(res, 404, { error: "프로젝트를 찾지 못했습니다." });
       res.writeHead(200, {
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache",
@@ -348,7 +349,19 @@ const server = http.createServer(async (req, res) => {
       );
     }
     if (req.method === "GET" && req.url === "/api/projects")
-      return send(res, 200, projects);
+      return send(
+        res,
+        200,
+        projects.filter((p) => !p.deletedAt),
+      );
+    if (req.method === "GET" && req.url === "/api/projects/deleted")
+      return send(
+        res,
+        200,
+        projects
+          .filter((p) => p.deletedAt)
+          .map((p) => ({ id: p.id, name: p.name, deletedAt: p.deletedAt })),
+      );
     if (req.method === "GET" && req.url === "/api/config")
       return send(res, 200, {
         defaultFolder: process.cwd(),
@@ -436,7 +449,9 @@ const server = http.createServer(async (req, res) => {
       const name = requireText(body.name, 80),
         goal = requireText(body.goal);
       if (
-        !["unity", "web", "roblox", "landing"].includes(body.type) ||
+        !["unity", "web", "roblox", "landing", "unassigned"].includes(
+          body.type,
+        ) ||
         !["claude", "codex"].includes(body.developer)
       )
         throw new Error("프로젝트 유형과 개발 담당을 선택해주세요.");
@@ -450,6 +465,7 @@ const server = http.createServer(async (req, res) => {
         type: body.type === "landing" ? "web" : body.type,
         developer: body.developer,
         repository: typeof body.repository === "string" ? body.repository : "",
+        repositoryImported: body.repositoryImported === true,
         createdAt: new Date().toISOString(),
         status: "대화 준비",
         tasks: [],
@@ -467,10 +483,32 @@ const server = http.createServer(async (req, res) => {
     }
     const p = projects.find((p) => p.id === body.id);
     if (!p) return send(res, 404, { error: "프로젝트를 찾지 못했습니다." });
+    if (req.url === "/api/project/restore") {
+      delete p.deletedAt;
+      await save();
+      return send(res, 200, { ok: true });
+    }
+    if (p.deletedAt)
+      return send(res, 404, {
+        error: "삭제한 프로젝트입니다. 먼저 복원해주세요.",
+      });
+    if (req.url === "/api/project/delete") {
+      if (active.has(p.id))
+        throw new Error("진행 중인 작업이 끝난 뒤 삭제해주세요.");
+      p.deletedAt = new Date().toISOString();
+      await save();
+      for (const response of subscribers.get(p.id) || []) response.end();
+      return send(res, 200, { ok: true });
+    }
     if (req.url === "/api/project/update") {
       if (active.has(p.id)) throw new Error("작업 종료 후 수정해주세요.");
       if (!["claude", "codex"].includes(body.developer))
         throw new Error("개발 담당을 확인해주세요.");
+      if (
+        body.type &&
+        !["unity", "web", "roblox", "unassigned"].includes(body.type)
+      )
+        throw new Error("프로젝트 유형을 확인해주세요.");
       const name = requireText(body.name, 80),
         goal = requireText(body.goal),
         repository =
@@ -485,6 +523,7 @@ const server = http.createServer(async (req, res) => {
         goal,
         repository,
         developer: body.developer,
+        type: body.type || p.type,
         approved: false,
       });
       await save();
@@ -522,6 +561,10 @@ const server = http.createServer(async (req, res) => {
         ),
       );
     } else if (req.url === "/api/build") {
+      if (p.type === "unassigned")
+        throw new Error(
+          "프로젝트 설정에서 Unity, Web, Roblox 중 유형을 먼저 선택해주세요.",
+        );
       job(
         p,
         p.type === "unity"

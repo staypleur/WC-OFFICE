@@ -1735,3 +1735,104 @@ aside .owner {
 .top {
   justify-content: flex-end;
 }
+#projects {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.project-accordion {
+  border: 1px solid #263f5c;
+  border-radius: 14px;
+  background: linear-gradient(125deg, #122033, #0b1320);
+  overflow: hidden;
+  margin: 0;
+}
+.project-accordion > summary {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  list-style: none;
+  cursor: pointer;
+}
+.project-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+.project-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.project-identity small {
+  color: #82bfeb;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.project-identity strong {
+  color: #e6f2ff;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.project-progress {
+  font-size: 12px;
+  color: #93abc6;
+}
+.accordion-arrow {
+  color: #8bd5ff;
+  transition: transform 0.2s;
+}
+.project-accordion[open] .accordion-arrow {
+  transform: rotate(180deg);
+}
+.project-accordion[open] {
+  border-color: #437798;
+}
+.project-details {
+  padding: 0 24px 24px;
+  border-top: 1px solid #ffffff0c;
+}
+.project-links {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.project-links a {
+  font-size: 12px;
+  color: #9cdcff;
+  text-decoration: none;
+}
+.project-links .delete-project {
+  margin-left: auto;
+  color: #dea3ac;
+  background: transparent;
+  border: 1px solid #68444d;
+}
+#deleted-projects {
+  margin: 30px 0;
+}
+.deleted-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid #ffffff12;
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .project-accordion > summary {
+    gap: 12px;
+    padding: 20px;
+    flex-wrap: wrap;
+  }
+  .project-progress {
+    width: 100%;
+    order: 3;
+  }
+  .project-details {
+    padding: 0 20px 20px;
+  }
+}

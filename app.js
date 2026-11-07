@@ -946,7 +946,13 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
     tick();
   };
   const resume = () => {
-    if (finished || pausedRemaining === null) return;
+    if (
+      finished ||
+      pausedRemaining === null ||
+      button.matches(":hover") ||
+      document.activeElement === button
+    )
+      return;
     expiresAt = Date.now() + pausedRemaining;
     pausedRemaining = null;
     button.classList.remove("undo-paused");
@@ -955,11 +961,15 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
   const removeListeners = () => {
     button.removeEventListener("mouseenter", pause);
     button.removeEventListener("mouseleave", resume);
+    button.removeEventListener("focus", pause);
+    button.removeEventListener("blur", resume);
   };
   button.addEventListener("mouseenter", pause);
   button.addEventListener("mouseleave", resume);
+  button.addEventListener("focus", pause);
+  button.addEventListener("blur", resume);
   tick();
-  if (button.matches(":hover")) pause();
+  if (button.matches(":hover") || document.activeElement === button) pause();
   const cancel = () => {
     finished = true;
     clearTimeout(timer);
@@ -1002,7 +1012,7 @@ $("#read-visible-updates").onclick = () => {
     },
   );
   applyProjectNameSearch();
-  $("#undo-read-updates").focus({ preventScroll: true });
+  $("#updates-only").focus({ preventScroll: true });
 };
 $("#undo-read-updates").onclick = () => {
   if (!updateReadUndo || !updateReadUndoTimer?.isActive()) {

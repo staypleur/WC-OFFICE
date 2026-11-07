@@ -6,6 +6,7 @@ import {
   createComparisonPreference,
   restoreHistorySelection,
   sortProjects,
+  moveFavoriteOrder,
 } from "/history-compare.mjs";
 let comparisonStorage;
 try {
@@ -45,6 +46,11 @@ const projectFavorites = createComparisonPreference(
   comparisonStorage,
   "favorite",
 );
+const favoriteOrders = createComparisonPreference(
+  comparisonStorage,
+  "favoriteOrder",
+);
+let draggedFavorite = null;
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -392,6 +398,7 @@ async function refresh() {
   const listView = JSON.stringify(visibleProjects);
   if (
     $("#projects").dataset.view !== listView &&
+    !draggedFavorite &&
     !document.activeElement?.matches("[data-change-search]")
   ) {
     const expandedHistory = new Set(
@@ -420,7 +427,7 @@ async function refresh() {
             ((expansionPreferences.get("project:" + p.id) ?? openIds.has(p.id))
               ? "open"
               : "") +
-            '><summary><span class="project-identity"><small>' +
+            '><summary><button type="button" class="favorite-drag" draggable="true" hidden aria-label="즐겨찾기 순서 변경" title="드래그하여 순서 변경 · 위/아래 방향키로 이동">⠿</button><span class="project-identity"><small>' +
             escape(type) +
             "</small><strong>" +
             escape(p.name || p.goal) +
@@ -796,12 +803,14 @@ function applyProjectSort() {
     );
     button.title = selected ? "즐겨찾기 해제" : "즐겨찾기 추가";
     card.classList.toggle("is-favorite", selected);
+    card.querySelector(".favorite-drag").hidden = !selected;
   }
   const sorted = sortProjects(
     projects.filter((project) => byId.has(project.id)),
     order,
     direction,
     favorites,
+    favoriteOrders.get("project-list:" + location.pathname) || [],
   );
   if (
     sorted.some(
@@ -883,7 +892,90 @@ function setAllProjectsExpanded(open) {
 }
 $("#expand-projects").onclick = () => setAllProjectsExpanded(true);
 $("#collapse-projects").onclick = () => setAllProjectsExpanded(false);
+function saveFavoriteMove(source, target, after) {
+  const ids = [
+    ...$("#projects").querySelectorAll(".project-accordion.is-favorite"),
+  ].map((card) => card.dataset.project);
+  if (!ids.includes(source) || !ids.includes(target)) return;
+  favoriteOrders.set(
+    "project-list:" + location.pathname,
+    moveFavoriteOrder(ids, source, target, after),
+  );
+  applyProjectSort();
+  $("#project-view-status").textContent = "즐겨찾기 순서를 저장했습니다.";
+  saveViewPosition();
+}
+function clearFavoriteDrag() {
+  draggedFavorite = null;
+  $("#projects")
+    .querySelectorAll(".drop-before, .drop-after, .is-dragging")
+    .forEach((card) =>
+      card.classList.remove("drop-before", "drop-after", "is-dragging"),
+    );
+}
+$("#projects").addEventListener("dragstart", (event) => {
+  const handle = event.target.closest(".favorite-drag");
+  if (!handle || handle.hidden) return;
+  const card = handle.closest(".project-accordion");
+  draggedFavorite = card.dataset.project;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", draggedFavorite);
+  card.classList.add("is-dragging");
+});
+$("#projects").addEventListener("dragover", (event) => {
+  if (!draggedFavorite) return;
+  $("#projects")
+    .querySelectorAll(".drop-before, .drop-after")
+    .forEach((card) => card.classList.remove("drop-before", "drop-after"));
+  const card = event.target.closest(
+    ".project-accordion.is-favorite:not([hidden])",
+  );
+  if (!card || card.dataset.project === draggedFavorite) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  const rect = card.querySelector("summary").getBoundingClientRect();
+  card.classList.add(
+    event.clientY > rect.top + rect.height / 2 ? "drop-after" : "drop-before",
+  );
+});
+$("#projects").addEventListener("drop", (event) => {
+  if (!draggedFavorite) return;
+  event.preventDefault();
+  const card = event.target.closest(
+    ".project-accordion.is-favorite:not([hidden])",
+  );
+  if (card && card.dataset.project !== draggedFavorite) {
+    const rect = card.querySelector("summary").getBoundingClientRect();
+    saveFavoriteMove(
+      draggedFavorite,
+      card.dataset.project,
+      event.clientY > rect.top + rect.height / 2,
+    );
+  }
+  clearFavoriteDrag();
+});
+$("#projects").addEventListener("dragend", clearFavoriteDrag);
+$("#projects").addEventListener("keydown", (event) => {
+  const handle = event.target.closest(".favorite-drag");
+  if (!handle || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+  event.preventDefault();
+  const cards = [
+    ...$("#projects").querySelectorAll(
+      ".project-accordion.is-favorite:not([hidden])",
+    ),
+  ];
+  const source = handle.closest(".project-accordion");
+  const down = event.key === "ArrowDown";
+  const target = cards[cards.indexOf(source) + (down ? 1 : -1)];
+  if (target)
+    saveFavoriteMove(source.dataset.project, target.dataset.project, down);
+  handle.focus({ preventScroll: true });
+});
 $("#projects").onclick = async (event) => {
+  if (event.target.closest(".favorite-drag")) {
+    event.preventDefault();
+    return;
+  }
   const favorite = event.target.closest("[data-favorite]");
   if (favorite) {
     event.preventDefault();

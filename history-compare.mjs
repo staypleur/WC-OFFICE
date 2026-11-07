@@ -5,6 +5,11 @@ export function historyKey(entry) {
 export function createComparisonPreference(storage, field) {
   const memory = new Map();
   const normalize = (value) => {
+    if (field === "favoriteOrder")
+      return Array.isArray(value) &&
+        value.every((id) => typeof id === "string" && id.length < 400)
+        ? [...new Set(value)].slice(0, 10000)
+        : undefined;
     if (field === "projectSortDirection")
       return ["asc", "desc"].includes(value) ? value : undefined;
     if (field === "projectSort")
@@ -89,6 +94,7 @@ export function sortProjects(
   order = "recent",
   direction = order === "name" ? "asc" : "desc",
   favorites = new Set(),
+  favoriteOrder = [],
 ) {
   const timestamp = (project) =>
     [
@@ -112,13 +118,28 @@ export function sortProjects(
     collator.compare(a.name || a.goal || "", b.name || b.goal || "") ||
     String(a.id).localeCompare(String(b.id));
   const multiplier = direction === "asc" ? 1 : -1;
+  const ranks = new Map(favoriteOrder.map((id, index) => [id, index]));
+  const byFavoriteOrder = (a, b) =>
+    favorites.has(a.id) && favorites.has(b.id)
+      ? (ranks.get(a.id) ?? favoriteOrder.length) -
+        (ranks.get(b.id) ?? favoriteOrder.length)
+      : 0;
   return [...projects].sort(
     (a, b) =>
       Number(favorites.has(b.id)) - Number(favorites.has(a.id)) ||
+      byFavoriteOrder(a, b) ||
       multiplier *
         (order === "name" ? byName(a, b) : timestamp(a) - timestamp(b)) ||
       byName(a, b),
   );
+}
+
+export function moveFavoriteOrder(ids, source, target, after = false) {
+  if (source === target || !ids.includes(source) || !ids.includes(target))
+    return [...ids];
+  const result = ids.filter((id) => id !== source);
+  result.splice(result.indexOf(target) + Number(after), 0, source);
+  return result;
 }
 
 export function searchParts(text, query) {

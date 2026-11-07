@@ -8,10 +8,48 @@ import {
   createComparisonPreference,
   restoreHistorySelection,
   sortProjects,
+  moveFavoriteOrder,
 } from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("manual favorite order persists and overrides sorting only for favorites", () => {
+  const projects = ["a", "b", "c", "d"].map((id) => ({ id, name: id }));
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  const ids = ["a", "b", "c"];
+  const moved = moveFavoriteOrder(ids, "c", "a");
+  assert.deepEqual(moved, ["c", "a", "b"]);
+  assert.deepEqual(moveFavoriteOrder(moved, "c", "b", true), ids);
+  assert.deepEqual(moveFavoriteOrder(ids, "unknown", "a"), ids);
+  assert.deepEqual(ids, ["a", "b", "c"]);
+  createComparisonPreference(storage, "favoriteOrder").set("active", moved);
+  const restored = createComparisonPreference(storage, "favoriteOrder");
+  assert.deepEqual(restored.get("active"), moved);
+  assert.equal(restored.get("held"), undefined);
+  for (const direction of ["asc", "desc"]) {
+    assert.deepEqual(
+      sortProjects(
+        projects,
+        "name",
+        direction,
+        new Set(ids),
+        restored.get("active"),
+      ).map((p) => p.id),
+      ["c", "a", "b", "d"],
+    );
+  }
+  assert.deepEqual(
+    sortProjects(projects, "name", "asc", new Set(["a", "b"]), moved).map(
+      (p) => p.id,
+    ),
+    ["a", "b", "c", "d"],
+  );
+});
 
 test("favorites stay first in either direction and persist independently", () => {
   const projects = [

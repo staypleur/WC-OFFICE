@@ -1764,6 +1764,37 @@ aside .owner {
   flex: 1;
   min-width: 0;
 }
+.favorite-drag {
+  flex: 0 0 auto;
+  padding: 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #82bfeb;
+  font-size: 24px;
+  cursor: grab;
+}
+.favorite-drag[hidden] {
+  display: none;
+}
+.favorite-drag:active {
+  cursor: grabbing;
+}
+.favorite-drag:hover {
+  background: #82bfeb18;
+}
+.favorite-drag:focus-visible {
+  outline: 2px solid #91ddff;
+}
+.project-accordion.is-dragging {
+  opacity: 0.5;
+}
+.project-accordion.drop-before {
+  box-shadow: 0 -3px #75d4ff;
+}
+.project-accordion.drop-after {
+  box-shadow: 0 3px #75d4ff;
+}
 .project-favorite {
   flex: 0 0 auto;
   width: 38px;

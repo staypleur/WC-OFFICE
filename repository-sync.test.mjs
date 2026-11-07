@@ -13,6 +13,33 @@ import {
 const old = "a".repeat(40),
   next = "b".repeat(40);
 
+test("structured change types must match summaries and survive report storage", () => {
+  const input = {
+    stage: "done",
+    summary: "summary",
+    validation: "not run",
+    implemented: [],
+    remaining: [],
+    changes: ["버튼 추가"],
+    changeTypes: ["added"],
+  };
+  const report = parseReport(JSON.stringify(input), []);
+  const delta = changeReport(
+    { commit: old },
+    { sha: next },
+    { compared: true },
+    report,
+    "now",
+  );
+  assert.deepEqual(delta.types, ["added"]);
+  assert.throws(() =>
+    parseReport(JSON.stringify({ ...input, changeTypes: [] }), []),
+  );
+  assert.throws(() =>
+    parseReport(JSON.stringify({ ...input, changeTypes: ["invalid"] }), []),
+  );
+});
+
 test("history preserves dated snapshots and deduplicates a commit across reloads", () => {
   const project = {
     repository: "https://github.com/user/repo.git",

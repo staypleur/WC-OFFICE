@@ -249,6 +249,15 @@ export function parseReport(text, files) {
       ))
   )
     throw new Error("변경 요약 형식 오류. 기존 요약을 유지합니다.");
+  if (
+    report.changeTypes !== undefined &&
+    (!Array.isArray(report.changeTypes) ||
+      report.changeTypes.length !== (report.changes || []).length ||
+      report.changeTypes.some(
+        (type) => !["added", "modified", "removed", "other"].includes(type),
+      ))
+  )
+    throw new Error("변경 분류 형식 오류. 기존 요약을 유지합니다.");
   return {
     stage: report.stage,
     summary: report.summary,
@@ -256,6 +265,7 @@ export function parseReport(text, files) {
     remaining: report.remaining,
     validation: report.validation,
     changes: report.changes || [],
+    changeTypes: report.changeTypes || [],
     evidence: files.map((f) => f.path),
   };
 }
@@ -276,7 +286,13 @@ async function summarize(project, latest, evidence) {
     });
   const changeInstruction =
     "\n추가 JSON 필드 changes: 최대 3개의 짧은 한국어 문장 배열. previous와 최신 커밋 사이에서 실제로 추가·수정·삭제된 내용만 구체적으로 설명하고 전체 기능 소개를 반복하지 마라. compared가 false이거나 이전 보고서가 없으면 changes는 빈 배열로 반환하라. 패치와 최신 코드에서 확인된 범위만 설명하고 변경 파일 목록이 일부일 수 있음을 유의하라.";
-  const output = await codex(prompt + changeInstruction, 180000, { cwd });
+  const typeInstruction =
+    "\nchangeTypes 필드도 반환하라. changes와 같은 길이·순서의 배열로 각 항목을 added(기능 추가), modified(기존 동작 수정), removed(기능 제거), other(혼합 또는 불확실) 중 하나로 분류하라. 파일 삭제가 아닌 사용자 기능 제거인지 구분하고, 삭제 버튼 추가는 added이다. 가능하면 한 문장에는 한 종류의 실제 변경만 담아라. 예정된 작업은 완료된 변경에 넣지 마라.";
+  const output = await codex(
+    prompt + changeInstruction + typeInstruction,
+    180000,
+    { cwd },
+  );
   return parseReport(output, evidence.files);
 }
 
@@ -291,6 +307,7 @@ export function changeReport(previous, latest, evidence, summary, checkedAt) {
     from: previous?.commit || null,
     to: latest.sha,
     checkedAt,
+    types: compared && summary.changes?.length ? summary.changeTypes || [] : [],
     items: compared
       ? summary.changes?.length
         ? summary.changes.slice(0, 3)

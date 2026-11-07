@@ -766,6 +766,56 @@ function comparisonResultHtml(p, selection) {
     "</p><code>" +
     escape(entry.commit.slice(0, 8)) +
     "</code></div>";
+  const categories = [
+    { type: "added", label: "추가된 기능", short: "추가", icon: "+" },
+    { type: "modified", label: "수정된 내용", short: "수정", icon: "↻" },
+    { type: "removed", label: "삭제된 내용", short: "삭제", icon: "−" },
+    { type: "other", label: "기타 · 분류 확인", short: "기타", icon: "•" },
+  ];
+  const groupItems = (category) =>
+    result.categorized.filter((item) => item.type === category.type);
+  const visibleCategories = categories.filter(
+    (category) => category.type !== "other" || groupItems(category).length,
+  );
+  const stats =
+    '<div class="change-stats">' +
+    visibleCategories
+      .map(
+        (category) =>
+          '<div class="change-stat change-' +
+          category.type +
+          '"><span><b aria-hidden="true">' +
+          category.icon +
+          "</b> " +
+          category.short +
+          "</span><strong>" +
+          groupItems(category).length +
+          "<small>건</small></strong></div>",
+      )
+      .join("") +
+    "</div>";
+  const grouped =
+    '<div class="change-groups">' +
+    visibleCategories
+      .filter((category) => groupItems(category).length)
+      .map(
+        (category) =>
+          '<section class="change-group change-' +
+          category.type +
+          '"><h5><span class="change-badge">' +
+          category.icon +
+          " " +
+          category.short +
+          "</span>" +
+          category.label +
+          "</h5><ul>" +
+          groupItems(category)
+            .map((item) => "<li>" + escape(item.text) + "</li>")
+            .join("") +
+          "</ul></section>",
+      )
+      .join("") +
+    "</div>";
   return (
     '<div class="comparison-snapshots">' +
     snapshot("시작 시점", result.before) +
@@ -774,10 +824,9 @@ function comparisonResultHtml(p, selection) {
     '<div class="comparison-changes"><h4>기간 중 변경 내용 <span>' +
     result.count +
     "회 갱신</span></h4>" +
+    stats +
     (result.changes.length
-      ? "<ul>" +
-        result.changes.map((item) => "<li>" + escape(item) + "</li>").join("") +
-        "</ul>"
+      ? grouped
       : "<p>이 구간에 저장된 변경 요약이 없습니다. 위의 두 시점 요약을 참고해주세요.</p>") +
     (result.incomplete
       ? '<p class="comparison-hint">일부 기록의 커밋 비교가 없어 변경 내역이 완전하지 않을 수 있습니다.</p>'

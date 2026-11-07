@@ -2,6 +2,29 @@ export function historyKey(entry) {
   return `${entry.repository}@${entry.commit}`;
 }
 
+export function classifyChange(text, explicitType) {
+  if (["added", "modified", "removed", "other"].includes(explicitType))
+    return explicitType;
+  // Legacy summaries have no structured type: only classify an unambiguous final action.
+  const patterns = {
+    added: /(?:추가|도입|신설|구현)(?:했습니다|하였습니다|했음|됨|함)?[.!。]?$/,
+    modified:
+      /(?:수정|개선|변경|조정|보완|최적화)(?:했습니다|하였습니다|했음|됨|함)?[.!。]?$/,
+    removed: /(?:삭제|제거|폐지)(?:했습니다|하였습니다|했음|됨|함)?[.!。]?$/,
+  };
+  const value = text.trim();
+  if (/(않|아니|없|예정|계획|필요)/.test(value)) return "other";
+  const actions = Object.entries(patterns).filter(([, pattern]) =>
+    pattern.test(value),
+  );
+  if (
+    actions.length !== 1 ||
+    /(?:추가|수정|삭제|제거|변경|개선)(?:하고|했으며|와|과|·|\/)/.test(value)
+  )
+    return "other";
+  return actions[0][0];
+}
+
 export function compareHistory(history, fromKey, toKey) {
   const entries = [...history].sort(
     (a, b) => new Date(a.checkedAt) - new Date(b.checkedAt),
@@ -21,6 +44,7 @@ export function compareHistory(history, fromKey, toKey) {
   let previous = before.commit;
   let incomplete = false;
   const changes = [];
+  const categorized = [];
   for (const entry of interval) {
     const delta = entry.changeReport;
     if (
@@ -30,8 +54,15 @@ export function compareHistory(history, fromKey, toKey) {
     )
       incomplete = true;
     if (delta?.state === "changed") {
-      for (const item of delta.items || []) {
+      for (const [index, item] of (delta.items || []).entries()) {
+        const type = classifyChange(item, delta.types?.[index]);
         if (!changes.includes(item)) changes.push(item);
+        if (
+          !categorized.some(
+            (change) => change.text === item && change.type === type,
+          )
+        )
+          categorized.push({ text: item, type });
       }
     }
     previous = entry.commit;
@@ -43,6 +74,7 @@ export function compareHistory(history, fromKey, toKey) {
     before,
     after,
     changes,
+    categorized,
     incomplete,
     count: interval.length,
     compareUrl:

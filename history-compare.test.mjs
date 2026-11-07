@@ -1,9 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareHistory, historyKey } from "./history-compare.mjs";
+import {
+  compareHistory,
+  historyKey,
+  classifyChange,
+} from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("classifies only clear legacy actions and respects explicit source types", () => {
+  assert.equal(classifyChange("삭제 버튼을 추가했습니다."), "added");
+  assert.equal(classifyChange("화면 색상을 수정했습니다."), "modified");
+  assert.equal(classifyChange("기존 메뉴를 제거했습니다."), "removed");
+  assert.equal(classifyChange("메뉴를 삭제하지 않았습니다."), "other");
+  assert.equal(classifyChange("버튼 추가 예정"), "other");
+  assert.equal(classifyChange("메뉴를 추가하고 화면을 수정했습니다."), "other");
+  assert.equal(
+    classifyChange("동작을 단순화했습니다.", "modified"),
+    "modified",
+  );
+  assert.equal(classifyChange("메뉴 추가", "other"), "other");
+});
+
+test("comparison groups typed changes and retains unclassified legacy text", () => {
+  const records = structuredClone(entries);
+  records[1].changeReport.items = [
+    "새 기능",
+    "화면 보완",
+    "메뉴 정리",
+    "설명만 있는 기록",
+  ];
+  records[1].changeReport.types = ["added", "modified", "removed", "other"];
+  const result = compareHistory(
+    records,
+    historyKey(records[0]),
+    historyKey(records[1]),
+  );
+  assert.deepEqual(
+    result.categorized.map((item) => item.type),
+    ["added", "modified", "removed", "other"],
+  );
+});
 const entries = [
   {
     repository: "owner/repo",

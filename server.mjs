@@ -69,6 +69,15 @@ function save() {
 }
 for (const p of projects) {
   if (p.type === "landing" || !p.type) p.type = "web";
+  if (
+    /^https:\/\/github\.com\/staypleur\/Gyeonggi-365(?:\.git)?\/?$/i.test(
+      p.repository || "",
+    ) &&
+    !p.appTypeMigration
+  ) {
+    p.type = "app";
+    p.appTypeMigration = true;
+  }
   p.messages ||= [];
   p.events ||= [];
   p.tasks ||= [];
@@ -475,7 +484,7 @@ const server = http.createServer(async (req, res) => {
       const name = requireText(body.name, 80),
         goal = requireText(body.goal);
       if (
-        !["unity", "web", "roblox", "landing", "unassigned"].includes(
+        !["unity", "web", "roblox", "app", "landing", "unassigned"].includes(
           body.type,
         ) ||
         !["claude", "codex"].includes(body.developer)
@@ -549,7 +558,7 @@ const server = http.createServer(async (req, res) => {
         throw new Error("개발 담당을 확인해주세요.");
       if (
         body.type &&
-        !["unity", "web", "roblox", "unassigned"].includes(body.type)
+        !["unity", "web", "roblox", "app", "unassigned"].includes(body.type)
       )
         throw new Error("프로젝트 유형을 확인해주세요.");
       const name = requireText(body.name, 80),
@@ -604,6 +613,10 @@ const server = http.createServer(async (req, res) => {
         ),
       );
     } else if (req.url === "/api/build") {
+      if (p.type === "app")
+        throw new Error(
+          "App 프로젝트는 메신저에서 대상 플랫폼과 개발 환경을 먼저 정해주세요. 자동 앱 빌드는 아직 연결되지 않았습니다.",
+        );
       if (p.type === "unassigned")
         throw new Error(
           "프로젝트 설정에서 Unity, Web, Roblox 중 유형을 먼저 선택해주세요.",

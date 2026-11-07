@@ -233,6 +233,14 @@
           </button>
           <button
             type="button"
+            data-project-type-filter="app"
+            aria-pressed="false"
+            aria-controls="projects"
+          >
+            App <span data-project-type-count="app">0</span>
+          </button>
+          <button
+            type="button"
             id="favorites-only"
             aria-pressed="false"
             aria-controls="projects"
@@ -345,6 +353,7 @@
               <option value="unity">Unity</option>
               <option value="web">Web</option>
               <option value="roblox">Roblox</option>
+              <option value="app">App</option>
             </select></label
           >
         </div>
@@ -412,6 +421,7 @@
                 <option value="unity">Unity</option>
                 <option value="web">Web</option>
                 <option value="roblox">Roblox</option>
+                <option value="app">App</option>
               </select></label
             ><label
               >개발 담당<select id="edit-developer">

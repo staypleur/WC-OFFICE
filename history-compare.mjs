@@ -19,7 +19,7 @@ export function createComparisonPreference(storage, field) {
     if (field === "projectSort")
       return ["recent", "name"].includes(value) ? value : undefined;
     if (field === "projectType")
-      return ["all", "unity", "web", "roblox"].includes(value)
+      return ["all", "unity", "web", "roblox", "app"].includes(value)
         ? value
         : undefined;
     if (

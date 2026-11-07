@@ -701,9 +701,11 @@ function renderProject(project) {
         ? "Unity 제작 · 컴파일"
         : project.type === "roblox"
           ? "Roblox 코드 제작"
-          : "Web 제작";
+          : project.type === "app"
+            ? "App 빌드 연결 준비 중"
+            : "Web 제작";
   $('#workspace [data-action="/api/build"]').disabled =
-    busy || project.type === "unassigned";
+    busy || project.type === "unassigned" || project.type === "app";
 }
 async function config() {
   const data = await request("/api/config");
@@ -845,7 +847,7 @@ function applyProjectNameSearch() {
       ),
     );
   const cards = [...document.querySelectorAll("#projects .project-accordion")];
-  const typeCounts = { all: 0, unity: 0, web: 0, roblox: 0 };
+  const typeCounts = { all: 0, unity: 0, web: 0, roblox: 0, app: 0 };
   let matched = 0;
   let favoriteCount = 0;
   let approvalCount = 0;
@@ -887,7 +889,8 @@ function applyProjectNameSearch() {
       updatesCount++;
     if (matchesName && matchesFavorite && matchesApproval && matchesUpdate) {
       typeCounts.all++;
-      if (["unity", "web", "roblox"].includes(p?.type)) typeCounts[p.type]++;
+      if (["unity", "web", "roblox", "app"].includes(p?.type))
+        typeCounts[p.type]++;
     }
     card.hidden =
       !matchesName ||

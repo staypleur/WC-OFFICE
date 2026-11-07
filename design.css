@@ -2789,10 +2789,19 @@ aside .owner {
   font-variant-numeric: tabular-nums;
   transition:
     opacity 220ms ease,
-    transform 220ms ease;
+    transform 220ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
   color: #b8eaff;
   border-color: #56b6df;
   background: #163c56;
+}
+.project-type-filters #undo-read-updates.undo-paused,
+.project-type-filters #undo-favorite-order.undo-paused {
+  color: #ffe2a3;
+  border-color: #d5a64c;
+  background-color: #49371b;
 }
 .project-type-filters .undo-expiring {
   opacity: 0;

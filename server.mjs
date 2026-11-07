@@ -66,7 +66,7 @@ const server = http.createServer(async (req, res) => {
     let body;
     try { body = JSON.parse(raw); } catch { return send(res, 400, { error: '입력을 확인해주세요.' }); }
     if (req.url === '/api/connections/codex/check') {
-      try { const reply = await runProvider('codex', '도구를 사용하지 말고 WC OFFICE 연결 확인이라고만 답하세요.'); codexVerified = true; return send(res, 200, { reply }); }
+      try { const reply = await runProvider('codex', '도구를 사용하지 말고 WC Office 연결 확인이라고만 답하세요.'); codexVerified = true; return send(res, 200, { reply }); }
       catch (error) { codexVerified = false; return send(res, 400, { error: error.message }); }
     }
     if (req.url === '/api/projects/run') {
@@ -85,4 +85,4 @@ const server = http.createServer(async (req, res) => {
     return send(res, 404, { error: '요청을 찾을 수 없습니다.' });
   } catch (error) { console.error(error.message); send(res, 500, { error: '처리하지 못했습니다. 다시 시도해주세요.' }); }
 });
-server.listen(4310, '127.0.0.1', () => console.log('WC OFFICE http://127.0.0.1:4310'));
+server.listen(4310, '127.0.0.1', () => console.log('WC Office http://127.0.0.1:4310'));

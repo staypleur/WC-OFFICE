@@ -891,20 +891,27 @@ function applyProjectSort() {
 function startUndoCountdown(button, label, expiresAt, onExpire) {
   let timer;
   let lastSeconds;
+  let pausedRemaining = null;
+  let finished = false;
+  const remaining = () =>
+    pausedRemaining ?? Math.max(0, expiresAt - Date.now());
   button.hidden = false;
   button.disabled = false;
   button.classList.remove("undo-expiring");
   const tick = () => {
-    const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    const seconds = Math.ceil(remaining() / 1000);
     if (seconds !== lastSeconds) {
       button.textContent = `${label} · ${seconds}초`;
       lastSeconds = seconds;
     }
     if (seconds > 0) {
-      timer = setTimeout(tick, Math.min(250, expiresAt - Date.now()));
+      if (pausedRemaining === null)
+        timer = setTimeout(tick, Math.min(250, remaining()));
       return;
     }
     button.disabled = true;
+    finished = true;
+    removeListeners();
     onExpire();
     button.classList.add("undo-expiring");
     timer = setTimeout(
@@ -914,13 +921,41 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220,
     );
   };
-  tick();
-  return () => {
+  const pause = () => {
+    if (finished || pausedRemaining !== null) return;
+    const left = remaining();
     clearTimeout(timer);
+    if (left <= 0) {
+      tick();
+      return;
+    }
+    pausedRemaining = left;
+    tick();
+  };
+  const resume = () => {
+    if (finished || pausedRemaining === null) return;
+    expiresAt = Date.now() + pausedRemaining;
+    pausedRemaining = null;
+    tick();
+  };
+  const removeListeners = () => {
+    button.removeEventListener("mouseenter", pause);
+    button.removeEventListener("mouseleave", resume);
+  };
+  button.addEventListener("mouseenter", pause);
+  button.addEventListener("mouseleave", resume);
+  tick();
+  if (button.matches(":hover")) pause();
+  const cancel = () => {
+    finished = true;
+    clearTimeout(timer);
+    removeListeners();
     button.hidden = true;
     button.disabled = false;
     button.classList.remove("undo-expiring");
   };
+  cancel.isActive = () => !finished && remaining() > 0;
+  return cancel;
 }
 function clearUpdateReadUndo() {
   updateReadUndoTimer?.();
@@ -956,7 +991,7 @@ $("#read-visible-updates").onclick = () => {
   $("#undo-read-updates").focus({ preventScroll: true });
 };
 $("#undo-read-updates").onclick = () => {
-  if (!updateReadUndo || Date.now() >= updateReadUndo.expiresAt) {
+  if (!updateReadUndo || !updateReadUndoTimer?.isActive()) {
     clearUpdateReadUndo();
     return;
   }
@@ -978,7 +1013,7 @@ $("#undo-favorite-order").onclick = () => {
   if (
     !snapshot ||
     snapshot.path !== location.pathname ||
-    Date.now() >= snapshot.expiresAt
+    !favoriteOrderUndoTimer?.isActive()
   ) {
     clearFavoriteOrderUndo();
     return;

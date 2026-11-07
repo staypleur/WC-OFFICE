@@ -314,6 +314,13 @@ const server = http.createServer(async (req, res) => {
       });
       return res.end(svg);
     }
+    if (req.method === "GET" && req.url === "/assets/fonts/SpaceGrotesk.ttf") {
+      res.writeHead(200, {
+        "Content-Type": "font/ttf",
+        "Cache-Control": "public, max-age=86400",
+      });
+      return res.end(await readFile("assets/fonts/SpaceGrotesk.ttf"));
+    }
     const projectPage =
       /^\/projects\/[a-f0-9-]+$/.test(req.url) ||
       [
@@ -352,6 +359,8 @@ const server = http.createServer(async (req, res) => {
         ),
       );
     }
+    if (req.method === "GET" && req.url === "/api/projects/refresh-status")
+      return send(res, 200, repositorySync.batchStatus);
     if (req.method === "GET" && req.url === "/api/projects")
       return send(
         res,
@@ -407,6 +416,8 @@ const server = http.createServer(async (req, res) => {
     const body = JSON.parse(raw);
     if (!body || typeof body !== "object")
       throw new Error("잘못된 입력입니다.");
+    if (req.url === "/api/projects/refresh")
+      return send(res, 202, repositorySync.refreshAll());
     if (req.url === "/api/folder")
       return send(res, 200, { folder: await chooseFolder() });
     if (req.url === "/api/settings") {

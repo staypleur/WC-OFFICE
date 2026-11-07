@@ -81,6 +81,19 @@
       <div id="project-list" class="section-head project-heading">
         <h2>진행 프로젝트</h2>
         <span class="muted" id="count">0개 프로젝트</span>
+        <div class="batch-refresh-controls">
+          <button type="button" id="refresh-all" class="repository-refresh">
+            ↻ 전체 새로고침
+          </button>
+          <span id="refresh-all-status" role="status" aria-live="polite"></span>
+          <progress
+            id="refresh-all-progress"
+            max="1"
+            value="0"
+            hidden
+            aria-label="전체 프로젝트 갱신 진행률"
+          ></progress>
+        </div>
       </div>
       <div id="projects"></div>
       <section id="deleted-projects">

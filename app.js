@@ -212,6 +212,7 @@ function error(message) {
   $("#error").textContent = message;
 }
 async function refresh() {
+  await updateBatchStatus();
   projects = await request("/api/projects");
   const heldPage = location.pathname === "/projects/held";
   const visibleProjects = projects.filter((p) => !!p.onHold === heldPage);
@@ -309,6 +310,42 @@ async function refresh() {
     error("프로젝트를 찾지 못했습니다. 프로젝트 목록으로 돌아가주세요.");
   if (project) renderProject(project);
 }
+let batchTimer;
+async function updateBatchStatus(status) {
+  clearTimeout(batchTimer);
+  try {
+    const s = status || (await request("/api/projects/refresh-status"));
+    const running = s.state === "running";
+    const processed = s.completed + s.failed + s.skipped;
+    $("#refresh-all").disabled = running;
+    $("#refresh-all").textContent = running
+      ? "↻ 전체 갱신 중…"
+      : "↻ 전체 새로고침";
+    $("#refresh-all-status").textContent =
+      s.state === "idle"
+        ? ""
+        : running
+          ? `갱신 중 ${processed}/${s.total} · ${s.current || "준비 중"}`
+          : `${s.failed ? "일부 갱신 실패" : "갱신 완료"} · 성공 ${s.completed}개${s.failed ? ` · 실패 ${s.failed}개` : ""}${s.skipped ? ` · 제외 ${s.skipped}개 (미연결·작업 중 등)` : ""} · ${new Date(s.finishedAt).toLocaleTimeString("ko-KR")}`;
+    $("#refresh-all-progress").hidden = !running;
+    $("#refresh-all-progress").max = s.total || 1;
+    $("#refresh-all-progress").value = processed;
+    if (running) batchTimer = setTimeout(() => updateBatchStatus(), 1500);
+  } catch (e) {
+    $("#refresh-all-status").textContent =
+      "갱신 상태를 확인할 수 없습니다. 다시 확인 중…";
+    batchTimer = setTimeout(() => updateBatchStatus(), 3000);
+  }
+}
+$("#refresh-all").onclick = async () => {
+  $("#refresh-all").disabled = true;
+  try {
+    await updateBatchStatus(await request("/api/projects/refresh", {}));
+  } catch (e) {
+    error(e.message);
+    $("#refresh-all").disabled = false;
+  }
+};
 function renderProject(project) {
   if (project.id !== selected) return;
   $("#workspace").hidden = false;

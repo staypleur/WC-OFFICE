@@ -1917,3 +1917,48 @@ aside .owner {
   opacity: 0.55;
   cursor: wait;
 }
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/assets/fonts/SpaceGrotesk.ttf") format("truetype");
+  font-weight: 300 700;
+  font-display: swap;
+}
+.hero-copy h1 {
+  font-family: "Space Grotesk", "Bahnschrift", sans-serif;
+  font-size: clamp(54px, 7.2vw, 104px);
+  font-weight: 600;
+  letter-spacing: -0.065em;
+  line-height: 1.08;
+}
+.hero-copy h1 span {
+  background: linear-gradient(120deg, #eff9ff 5%, #8fdfff 48%, #568aff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+.batch-refresh-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-left: auto;
+}
+#refresh-all-status {
+  color: #a7c9e7;
+  font-size: 12px;
+}
+#refresh-all-progress {
+  width: 100%;
+  height: 4px;
+  accent-color: #79d5ff;
+}
+.project-heading {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+@media (max-width: 680px) {
+  .batch-refresh-controls {
+    width: 100%;
+    margin-left: 0;
+  }
+}

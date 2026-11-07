@@ -11,6 +11,53 @@ import {
 const old = "a".repeat(40),
   next = "b".repeat(40);
 
+test("batch refresh counts success, failures and skips and ignores duplicate starts", async () => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  const projects = [
+    { id: "ok", onHold: true },
+    { id: "fail" },
+    { id: "busy" },
+    { id: "unlinked", repository: "" },
+    { id: "deleted", deletedAt: "today" },
+  ].map((p) => ({
+    repository: "https://github.com/user/repo",
+    repositoryReport: { commit: old },
+    ...p,
+  }));
+  const sync = createRepositorySync({
+    projects,
+    save: async () => {},
+    isActive: (id) => id === "busy",
+    getHead: async (p) => {
+      calls++;
+      await gate;
+      if (p.id === "fail") throw Error("offline");
+      return { sha: old };
+    },
+  });
+  assert.equal(sync.refreshAll().state, "running");
+  assert.equal(sync.refreshAll().total, 4);
+  release();
+  for (let i = 0; i < 20 && sync.batchStatus.state === "running"; i++)
+    await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(sync.batchStatus.state, "partial");
+  assert.equal(sync.batchStatus.completed, 1);
+  assert.equal(sync.batchStatus.failed, 1);
+  assert.equal(sync.batchStatus.skipped, 2);
+  assert.equal(calls, 2);
+  assert.ok(sync.batchStatus.finishedAt);
+});
+
+test("empty batch finishes without leaving a running state", () => {
+  const sync = createRepositorySync({ projects: [], save: async () => {} });
+  assert.equal(sync.refreshAll().state, "complete");
+  assert.equal(sync.batchStatus.total, 0);
+});
+
 test("manual refresh targets one project and coalesces repeated clicks", async () => {
   let release;
   const gate = new Promise((resolve) => {

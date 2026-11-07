@@ -279,6 +279,45 @@ export function createRepositorySync({
 }) {
   let running = false;
   const pending = new Map();
+  let batch = { state: "idle", total: 0, completed: 0, failed: 0, skipped: 0 };
+  function refreshAll() {
+    if (batch.state === "running") return { ...batch };
+    const targets = projects.filter((p) => !p.deletedAt);
+    batch = {
+      state: "running",
+      total: targets.length,
+      completed: 0,
+      failed: 0,
+      skipped: 0,
+      startedAt: now(),
+      current: "",
+    };
+    void (async () => {
+      for (const project of targets) {
+        if (
+          project.deletedAt ||
+          isActive(project.id) ||
+          !repositorySlug(project.repository)
+        ) {
+          batch.skipped++;
+          continue;
+        }
+        batch.current = project.name || project.id;
+        try {
+          await refresh(project.id);
+          if (project.deletedAt) batch.skipped++;
+          else if (project.repositorySync?.state === "error") batch.failed++;
+          else batch.completed++;
+        } catch {
+          batch.failed++;
+        }
+      }
+      batch.state = batch.failed ? "partial" : "complete";
+      batch.current = "";
+      batch.finishedAt = now();
+    })();
+    return { ...batch };
+  }
   function refresh(id) {
     if (pending.has(id)) return pending.get(id);
     const project = projects.find((p) => p.id === id);
@@ -381,6 +420,10 @@ export function createRepositorySync({
   return {
     poll,
     refresh,
+    refreshAll,
+    get batchStatus() {
+      return { ...batch };
+    },
     get running() {
       return running;
     },

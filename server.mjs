@@ -102,7 +102,7 @@ function requireText(value, max = 4000) {
   return value.trim();
 }
 function context(p) {
-  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n기획 인수인계:\n${p.brief || ""}\n대화:\n${p.messages
+  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\nGitHub 분석(실행 검증과 구분): ${p.repositoryReport ? JSON.stringify(p.repositoryReport) : "미확인"}\n기획 인수인계:\n${p.brief || ""}\n대화:\n${p.messages
     .filter((m) => m.role !== "시스템")
     .slice(-12)
     .map((m) => m.role + ": " + m.text)
@@ -110,6 +110,7 @@ function context(p) {
     .slice(-40000)}`;
 }
 function job(p, title, provider, work) {
+  if (p.onHold) throw new Error("보류를 해제한 뒤 작업을 요청해주세요.");
   if (active.has(p.id)) throw new Error("현재 작업이 끝난 뒤 요청해주세요.");
   active.add(p.id);
   p.status = "작업 중";
@@ -318,6 +319,7 @@ const server = http.createServer(async (req, res) => {
         "/new",
         "/projects",
         "/projects/active",
+        "/projects/held",
         "/team",
         "/settings",
         "/marketing",
@@ -492,6 +494,19 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, {
         error: "삭제한 프로젝트입니다. 먼저 복원해주세요.",
       });
+    if (req.url === "/api/project/hold") {
+      if (active.has(p.id))
+        throw new Error("진행 중인 작업이 끝난 뒤 보류해주세요.");
+      p.onHold = body.onHold === true;
+      p.holdChangedAt = new Date().toISOString();
+      await save();
+      return send(res, 200, { ok: true });
+    }
+    if (
+      p.onHold &&
+      !["/api/project/update", "/api/project/delete"].includes(req.url)
+    )
+      throw new Error("보류를 해제한 뒤 작업을 요청해주세요.");
     if (req.url === "/api/project/delete") {
       if (active.has(p.id))
         throw new Error("진행 중인 작업이 끝난 뒤 삭제해주세요.");

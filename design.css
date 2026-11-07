@@ -1836,3 +1836,48 @@ aside .owner {
     padding: 0 20px 20px;
   }
 }
+.repository-report {
+  border-top: 1px solid #ffffff12;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.repository-report h3 {
+  font-size: 14px;
+  color: #a7dfff;
+}
+.repository-report > p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #b4c9df;
+}
+.repository-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 20px 0;
+}
+.repository-columns small {
+  color: #7dbbe5;
+}
+.repository-columns ul {
+  padding-left: 18px;
+  color: #b2c6dc;
+  font-size: 12px;
+  line-height: 1.9;
+}
+.repository-report .notice {
+  font-size: 11px;
+  color: #7e98b5;
+}
+.project-subnav {
+  flex-wrap: wrap;
+}
+@media (max-width: 700px) {
+  .repository-columns {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .project-subnav {
+    gap: 18px;
+  }
+}

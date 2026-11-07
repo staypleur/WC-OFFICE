@@ -11,9 +11,12 @@ function setPageVisibility(id) {
     [".hero", ["/"]],
     [
       "#project-list,#projects,#deleted-projects",
-      ["/", "/projects", "/projects/active"],
+      ["/", "/projects", "/projects/active", "/projects/held"],
     ],
-    ["#project-hub", ["/projects", "/new", "/projects/active", "room"]],
+    [
+      "#project-hub",
+      ["/projects", "/new", "/projects/active", "/projects/held", "room"],
+    ],
     ["#marketing-page", ["/marketing"]],
     ["#form", ["/new"]],
     ["#ai-team", ["/team", "/settings"]],
@@ -29,7 +32,9 @@ function setPageVisibility(id) {
   document.querySelectorAll("aside nav a").forEach((link) => {
     const active =
       new URL(link.href).pathname ===
-      (["room", "/", "/new", "/projects/active"].includes(page)
+      (["room", "/", "/new", "/projects/active", "/projects/held"].includes(
+        page,
+      )
         ? "/projects"
         : page === "/settings"
           ? "/team"
@@ -42,7 +47,11 @@ function setPageVisibility(id) {
   document.querySelectorAll(".project-subnav a").forEach((link) => {
     const active =
       new URL(link.href).pathname ===
-      (page === "/new" ? "/new" : "/projects/active");
+      (page === "/new"
+        ? "/new"
+        : page === "/projects/held"
+          ? "/projects/held"
+          : "/projects/active");
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
@@ -189,7 +198,12 @@ function error(message) {
 }
 async function refresh() {
   projects = await request("/api/projects");
-  $("#count").textContent = `${projects.length}개`;
+  const heldPage = location.pathname === "/projects/held";
+  const visibleProjects = projects.filter((p) => !!p.onHold === heldPage);
+  $("#project-list h2").textContent = heldPage
+    ? "보류 프로젝트"
+    : "진행 프로젝트";
+  $("#count").textContent = `${visibleProjects.length}개`;
   $("#marketing-projects").innerHTML =
     projects
       .map(
@@ -202,10 +216,10 @@ async function refresh() {
       (node) => node.dataset.project,
     ),
   );
-  const listView = JSON.stringify(projects);
+  const listView = JSON.stringify(visibleProjects);
   if ($("#projects").dataset.view !== listView) {
     $("#projects").innerHTML =
-      projects
+      visibleProjects
         .map((p) => {
           const s = projectSummary(p);
           const type =
@@ -231,7 +245,7 @@ async function refresh() {
             escape(s.progress) +
             '</span><span class="accordion-arrow">⌄</span></summary><div class="project-details"><div class="report-grid"><div><small>진행 상황</small><p>' +
             escape(s.progress) +
-            "</p><span>완료 작업 " +
+            "</p><span>WC Office 완료 작업 " +
             s.completed +
             " / " +
             s.total +
@@ -239,10 +253,19 @@ async function refresh() {
             escape(s.approval) +
             "</p></div><div><small>최근 결과 요약</small><p>" +
             escape(s.result) +
-            '</p></div></div><div class="project-links"><a href="/projects/' +
+            "</p></div></div>" +
+            repositoryReportHtml(p) +
+            '<div class="project-links"><a href="/projects/' +
             escape(p.id) +
             '">작업실 입장 ↗</a>' +
             repoLink +
+            '<button type="button" data-hold="' +
+            escape(p.id) +
+            '" ' +
+            (p.status === "작업 중" ? "disabled" : "") +
+            ">" +
+            (p.onHold ? "보류 해제" : "보류") +
+            "</button>" +
             '<button type="button" class="delete-project" data-delete="' +
             escape(p.id) +
             '" ' +
@@ -292,6 +315,7 @@ function renderProject(project) {
     project.status,
     project.activity,
     project.phase,
+    project.onHold,
   ]);
   if (view !== lastView) {
     $("#task-history").innerHTML = project.tasks
@@ -303,7 +327,7 @@ function renderProject(project) {
     renderChat(project);
     lastView = view;
   }
-  const busy = project.status === "작업 중";
+  const busy = project.status === "작업 중" || project.onHold;
   $("#project-status").textContent = project.status;
   $("#workspace")
     .querySelectorAll("button:not(#chat-form button)")
@@ -435,6 +459,19 @@ $("#projects").addEventListener(
   true,
 );
 $("#projects").onclick = async (event) => {
+  const hold = event.target.closest("[data-hold]");
+  if (hold) {
+    hold.disabled = true;
+    try {
+      const p = projects.find((p) => p.id === hold.dataset.hold);
+      await request("/api/project/hold", { id: p.id, onHold: !p.onHold });
+      await refresh();
+    } catch (e) {
+      error(e.message);
+      hold.disabled = false;
+    }
+    return;
+  }
   const button = event.target.closest("[data-delete]");
   if (!button) return;
   button.disabled = true;
@@ -568,6 +605,7 @@ function renderChat(project) {
     project.activity,
     project.phase,
     project.status,
+    project.onHold,
   ]);
   if (view === lastChatView) return;
   lastChatView = view;
@@ -616,8 +654,45 @@ function renderChat(project) {
       .join("") ||
     '<div class="empty">팀 채팅방입니다. 목표와 첫 지시를 남겨주세요.</div>';
   if (follow) feed.scrollTop = feed.scrollHeight;
-  $("#current-work").textContent = project.phase
-    ? project.phase.agent + " · " + project.phase.title
-    : "현재 진행 중인 작업 없음";
+  $("#chat-input").disabled = !!project.onHold;
+  $("#chat-form button").disabled = !!project.onHold;
+  $("#current-work").textContent = project.onHold
+    ? "보류 중 · 보류 해제 후 지시할 수 있습니다."
+    : project.phase
+      ? project.phase.agent + " · " + project.phase.title
+      : "현재 진행 중인 작업 없음";
   $("#current-work").classList.toggle("working", project.status === "작업 중");
+}
+
+function repositoryReportHtml(p) {
+  const r = p.repositoryReport;
+  if (!r) return "";
+  const list = (title, items) =>
+    "<div><small>" +
+    title +
+    "</small><ul>" +
+    items.map((x) => "<li>" + escape(x) + "</li>").join("") +
+    "</ul></div>";
+  return (
+    '<section class="repository-report"><h3>GitHub 코드 분석</h3><p>' +
+    escape(r.summary) +
+    '</p><div class="repository-columns">' +
+    list("구현 확인", r.implemented || []) +
+    list("남은 작업 · 확인 필요", r.remaining || []) +
+    '</div><p class="notice">' +
+    escape(r.validation || "실행 검증은 하지 않았습니다.") +
+    '</p><p class="notice">기준 커밋 ' +
+    escape(r.commit?.slice(0, 8)) +
+    " · " +
+    escape(r.branch) +
+    " · 확인 " +
+    escape(new Date(r.checkedAt).toLocaleString("ko-KR")) +
+    '</p><p class="notice">최근 변경: ' +
+    escape(r.latestCommit || "") +
+    '</p><p class="notice">' +
+    escape(r.githubStatus || "") +
+    "</p><details><summary>근거 파일 · 코드 위치</summary><pre>" +
+    escape((r.evidence || []).join("\n") + "\n로컬 코드: " + r.localPath) +
+    "</pre></details></section>"
+  );
 }

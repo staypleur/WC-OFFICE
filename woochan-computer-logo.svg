@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 80" fill="none">
+  <title>WOOCHAN COMPUTER</title>
+  <defs>
+    <linearGradient id="screen" x1="12" y1="60" x2="68" y2="12" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3675FF"/>
+      <stop offset="1" stop-color="#79D5FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="78" height="78" rx="20" fill="#0C1424" stroke="#294367" stroke-width="2"/>
+  <path d="M64 24V21a6 6 0 0 0-6-6H22a6 6 0 0 0-6 6v31a6 6 0 0 0 6 6h36a6 6 0 0 0 6-6v-3" stroke="url(#screen)" stroke-width="4" stroke-linecap="round"/>
+  <path d="m25 29 7 17 8-12 8 12 7-17" stroke="#F3F7FF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 59v7m-10 0h20" stroke="#79D5FF" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="64" cy="36" r="3" fill="#79D5FF"/>
+  <text x="99" y="37" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" letter-spacing="1.5" fill="#F3F7FF">WOOCHAN</text>
+  <text x="101" y="62" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="500" letter-spacing="5.2" fill="#79D5FF">COMPUTER</text>
+</svg>

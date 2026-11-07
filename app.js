@@ -682,9 +682,17 @@ function applyProjectNameSearch() {
   let matched = 0;
   for (const card of cards) {
     const p = projects.find((project) => project.id === card.dataset.project);
-    card.hidden =
-      !!query &&
-      !searchParts(p?.name || p?.goal || "", query).some((part) => part.match);
+    const parts = searchParts(p?.name || p?.goal || "", query);
+    card.hidden = !!query && !parts.some((part) => part.match);
+    card.querySelector(".project-identity strong").innerHTML = parts
+      .map((part) =>
+        part.match
+          ? '<mark class="search-match project-name-match">' +
+            escape(part.text) +
+            "</mark>"
+          : escape(part.text),
+      )
+      .join("");
     if (!card.hidden) matched++;
   }
   $("#count").textContent = query

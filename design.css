@@ -2653,3 +2653,8 @@ aside .owner {
 .project-search-empty[hidden] {
   display: none;
 }
+.project-name-match {
+  padding: 1px 3px;
+  border-radius: 4px;
+  font-weight: inherit;
+}

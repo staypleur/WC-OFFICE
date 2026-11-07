@@ -169,13 +169,17 @@ let chatStream = null;
 let lastChatView = "";
 
 function setPageVisibility(id) {
+  document.documentElement.toggleAttribute(
+    "data-project-loading",
+    $("#projects").getAttribute("aria-busy") === "true",
+  );
   $("#project-name-query").value =
     projectNameQueries.get("project-list:" + location.pathname) || "";
   const page = id ? "room" : location.pathname;
   const groups = [
     [".hero", ["/"]],
     [
-      "#project-list,#projects",
+      "#project-list,#projects,#project-load-status",
       ["/projects", "/projects/active", "/projects/held"],
     ],
     [
@@ -236,6 +240,7 @@ function setPageVisibility(id) {
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
+  document.documentElement.setAttribute("data-route-ready", "");
 }
 
 function connectionFromHash() {
@@ -358,6 +363,10 @@ function routeProject(id, push = true) {
     .then(() => restoreViewPosition(revision))
     .catch((e) => {
       restoringPosition = false;
+      if ($("#projects").getAttribute("aria-busy") === "true") {
+        $("#project-load-status").textContent =
+          "프로젝트를 불러오지 못했습니다. 페이지를 새로고침해주세요.";
+      }
       error(e.message);
     });
 }
@@ -405,7 +414,8 @@ function error(message) {
   $("#error").textContent = message;
 }
 async function refresh() {
-  await updateBatchStatus();
+  // Status polling must not delay the actual project list.
+  void updateBatchStatus();
   projects = await request("/api/projects");
   const heldPage = location.pathname === "/projects/held";
   const visibleProjects = projects.filter((p) => !!p.onHold === heldPage);
@@ -508,6 +518,9 @@ async function refresh() {
       .querySelectorAll("[data-compare-project]")
       .forEach(applyChangeSearch);
   }
+  $("#projects").setAttribute("aria-busy", "false");
+  document.documentElement.removeAttribute("data-project-loading");
+  $("#project-load-status").hidden = true;
   applyProjectNameSearch();
   const deleted = await request("/api/projects/deleted");
   $("#deleted-project-list").innerHTML =
@@ -846,7 +859,11 @@ function applyProjectNameSearch() {
   $("#project-search-status").textContent = filtered
     ? `${matched}개 표시 · 펼치기·접기는 표시된 프로젝트에만 적용`
     : "";
-  $("#project-search-empty").hidden = !filtered || matched > 0;
+  const loaded = $("#projects").getAttribute("aria-busy") !== "true";
+  $("#project-search-empty").hidden = !loaded || matched > 0;
+  $("#project-search-empty").textContent = filtered
+    ? "검색어나 필터에 맞는 프로젝트가 없습니다. 전체 초기화로 모든 프로젝트를 확인할 수 있습니다."
+    : "아직 진행 중인 프로젝트가 없습니다.";
   $("#clear-project-name").disabled = !$("#project-name-query").value.length;
   $("#reset-project-filters").disabled =
     !$("#project-name-query").value.length &&

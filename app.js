@@ -355,6 +355,8 @@ async function refresh() {
     ? "보류 프로젝트"
     : "진행 프로젝트";
   $("#count").textContent = `${visibleProjects.length}개`;
+  $("#expand-projects").disabled = !visibleProjects.length;
+  $("#collapse-projects").disabled = !visibleProjects.length;
   $("#marketing-projects").innerHTML =
     projects
       .map(
@@ -670,6 +672,27 @@ $("#projects").addEventListener(
   },
   true,
 );
+function setAllProjectsExpanded(open) {
+  const cards = [...document.querySelectorAll("#projects .project-accordion")];
+  if (!cards.length) return;
+  cancelPositionRestore();
+  for (const card of cards) {
+    if (!open) {
+      card.querySelectorAll("details").forEach((detail) => {
+        detail.open = false;
+        const key = expansionKey(detail);
+        if (key) expansionPreferences.set(key, false);
+      });
+    }
+    card.open = open;
+    expansionPreferences.set(expansionKey(card), open);
+  }
+  $("#project-view-status").textContent =
+    `${cards.length}개 프로젝트를 ${open ? "펼쳤습니다" : "하위 기록까지 모두 접었습니다"}.`;
+  requestAnimationFrame(saveViewPosition);
+}
+$("#expand-projects").onclick = () => setAllProjectsExpanded(true);
+$("#collapse-projects").onclick = () => setAllProjectsExpanded(false);
 $("#projects").onclick = async (event) => {
   const clearSearch = event.target.closest(
     "[data-search-clear], [data-search-reset]",

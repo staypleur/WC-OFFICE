@@ -81,6 +81,23 @@
       <div id="project-list" class="section-head project-heading">
         <h2>진행 프로젝트</h2>
         <span class="muted" id="count">0개 프로젝트</span>
+        <div
+          class="project-view-controls"
+          role="group"
+          aria-label="프로젝트 펼침 설정"
+        >
+          <button type="button" id="expand-projects" aria-controls="projects">
+            전체 펼치기
+          </button>
+          <button type="button" id="collapse-projects" aria-controls="projects">
+            전체 접기
+          </button>
+        </div>
+        <span
+          id="project-view-status"
+          class="visually-hidden"
+          role="status"
+        ></span>
         <div class="batch-refresh-controls">
           <button type="button" id="refresh-all" class="repository-refresh">
             ↻ 전체 새로고침

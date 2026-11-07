@@ -12,6 +12,45 @@ const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
 
+test("expanded panels and per-page scroll anchors survive reload, including closed state", () => {
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  const open = createComparisonPreference(storage, "open");
+  open.set("project:one", true);
+  open.set("detail:one:history", true);
+  open.set("project:two", false);
+  const reloaded = createComparisonPreference(storage, "open");
+  assert.equal(reloaded.get("project:one"), true);
+  assert.equal(reloaded.get("detail:one:history"), true);
+  assert.equal(reloaded.get("project:two"), false);
+  reloaded.set("project:one", false);
+  assert.equal(
+    createComparisonPreference(storage, "open").get("project:one"),
+    false,
+  );
+  const positions = createComparisonPreference(storage, "position");
+  const position = { y: 2400, anchor: "detail:one:history", offset: -300 };
+  positions.set("/projects/active", position);
+  positions.set("/projects/held", { y: 0, anchor: null, offset: 0 });
+  assert.deepEqual(
+    createComparisonPreference(storage, "position").get("/projects/active"),
+    position,
+  );
+  assert.equal(
+    createComparisonPreference(storage, "position").get("/projects/held").y,
+    0,
+  );
+  assert.equal(
+    createComparisonPreference({ getItem: () => '{"y":-1}' }, "position").get(
+      "/",
+    ),
+    undefined,
+  );
+});
+
 test("comparison settings survive reload independently for each project and field", () => {
   const data = new Map();
   const storage = {

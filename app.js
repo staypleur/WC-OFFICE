@@ -25,6 +25,98 @@ const comparisonQueries = createComparisonPreference(
   "query",
 );
 const $ = (selector) => document.querySelector(selector);
+const expansionPreferences = createComparisonPreference(
+  comparisonStorage,
+  "open",
+);
+const positionPreferences = createComparisonPreference(
+  comparisonStorage,
+  "position",
+);
+let viewPath = location.pathname;
+let restoringPosition = true;
+let positionRevision = 0;
+let positionTimer;
+history.scrollRestoration = "manual";
+function expansionKey(node) {
+  return node.dataset.historyKey
+    ? "detail:" + node.dataset.historyKey
+    : node.dataset.project
+      ? "project:" + node.dataset.project
+      : null;
+}
+function saveViewPosition() {
+  if (restoringPosition) return;
+  clearTimeout(positionTimer);
+  const nodes = [
+    ...document.querySelectorAll(
+      "#projects .project-accordion, #projects [data-history-key]",
+    ),
+  ];
+  const anchor = nodes
+    .filter((node) => {
+      const r = node.getBoundingClientRect();
+      return node.getClientRects().length && r.top <= 110 && r.bottom > 110;
+    })
+    .at(-1);
+  positionPreferences.set(viewPath, {
+    y: window.scrollY,
+    anchor: anchor ? expansionKey(anchor) : null,
+    offset: anchor ? anchor.getBoundingClientRect().top : 0,
+  });
+}
+async function restoreViewPosition(revision) {
+  await Promise.race([
+    document.fonts?.ready || Promise.resolve(),
+    new Promise((resolve) => setTimeout(resolve, 800)),
+  ]);
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve)),
+  );
+  if (revision !== positionRevision || !restoringPosition) return;
+  const saved = positionPreferences.get(viewPath);
+  const anchor =
+    saved?.anchor &&
+    [
+      ...document.querySelectorAll(
+        "#projects .project-accordion, #projects [data-history-key]",
+      ),
+    ].find(
+      (node) =>
+        expansionKey(node) === saved.anchor && node.getClientRects().length,
+    );
+  const y = anchor
+    ? window.scrollY + anchor.getBoundingClientRect().top - saved.offset
+    : saved?.y || 0;
+  window.scrollTo({ top: Math.max(0, y), behavior: "instant" });
+  restoringPosition = false;
+}
+window.addEventListener(
+  "scroll",
+  () => {
+    if (restoringPosition) return;
+    clearTimeout(positionTimer);
+    positionTimer = setTimeout(saveViewPosition, 180);
+  },
+  { passive: true },
+);
+function cancelPositionRestore() {
+  if (restoringPosition) {
+    restoringPosition = false;
+    positionRevision++;
+  }
+}
+window.addEventListener("wheel", cancelPositionRestore, { passive: true });
+window.addEventListener("touchstart", cancelPositionRestore, { passive: true });
+window.addEventListener("keydown", (event) => {
+  if (
+    ["PageDown", "PageUp", "Home", "End", "ArrowDown", "ArrowUp", " "].includes(
+      event.key,
+    ) &&
+    !event.target.matches("input, textarea, select")
+  )
+    cancelPositionRestore();
+});
 let reportId = null;
 let chatId = null;
 let chatStream = null;
@@ -173,10 +265,15 @@ let selected =
   /^\/projects\/([a-f0-9-]+)$/.exec(location.pathname)?.[1] || null;
 let eventStream;
 function routeProject(id, push = true) {
+  saveViewPosition();
+  restoringPosition = true;
+  const revision = ++positionRevision;
+  clearTimeout(positionTimer);
   selected = id;
   lastView = "";
   editingProject = null;
   if (push) history.pushState({}, "", id ? "/projects/" + id : "/");
+  viewPath = location.pathname;
   document.body.classList.toggle("project-mode", !!id);
   setPageVisibility(id);
   eventStream?.close();
@@ -199,8 +296,12 @@ function routeProject(id, push = true) {
       $("#live-state").textContent = "연결 복구 중…";
     };
   }
-  refresh().catch((e) => error(e.message));
-  window.scrollTo(0, 0);
+  refresh()
+    .then(() => restoreViewPosition(revision))
+    .catch((e) => {
+      restoringPosition = false;
+      error(e.message);
+    });
 }
 window.addEventListener("popstate", () =>
   routeProject(
@@ -209,6 +310,15 @@ window.addEventListener("popstate", () =>
   ),
 );
 window.addEventListener("pagehide", () => {
+  document
+    .querySelectorAll(
+      "#projects .project-accordion, #projects [data-history-key]",
+    )
+    .forEach((node) => {
+      const key = expansionKey(node);
+      if (key) expansionPreferences.set(key, node.open);
+    });
+  saveViewPosition();
   eventStream?.close();
   chatStream?.close();
 });
@@ -285,7 +395,9 @@ async function refresh() {
             '<details class="project-accordion" data-project="' +
             escape(p.id) +
             '" ' +
-            (openIds.has(p.id) ? "open" : "") +
+            ((expansionPreferences.get("project:" + p.id) ?? openIds.has(p.id))
+              ? "open"
+              : "") +
             '><summary><span class="project-identity"><small>' +
             escape(type) +
             "</small><strong>" +
@@ -325,7 +437,9 @@ async function refresh() {
         .join("") || '<div class="empty">프로젝트를 만들어 시작하세요.</div>';
     $("#projects").dataset.view = listView;
     document.querySelectorAll("[data-history-key]").forEach((node) => {
-      node.open = expandedHistory.has(node.dataset.historyKey);
+      node.open =
+        expansionPreferences.get(expansionKey(node)) ??
+        expandedHistory.has(node.dataset.historyKey);
     });
     document
       .querySelectorAll("[data-compare-project]")
@@ -544,6 +658,13 @@ $("#choose-folder").onclick = async (event) => {
 $("#projects").addEventListener(
   "toggle",
   (event) => {
+    if (
+      event.target.isConnected &&
+      event.target instanceof HTMLDetailsElement
+    ) {
+      const key = expansionKey(event.target);
+      if (key) expansionPreferences.set(key, event.target.open);
+    }
     if (event.target.matches(".project-accordion") && event.target.open)
       reportId = event.target.dataset.project;
   },

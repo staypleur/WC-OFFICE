@@ -5,6 +5,23 @@ export function historyKey(entry) {
 export function createComparisonPreference(storage, field) {
   const memory = new Map();
   const normalize = (value) => {
+    if (field === "open") return typeof value === "boolean" ? value : undefined;
+    if (
+      field === "position" &&
+      value &&
+      Number.isFinite(value.y) &&
+      value.y >= 0 &&
+      value.y < 10000000
+    ) {
+      return {
+        y: value.y,
+        anchor:
+          typeof value.anchor === "string" && value.anchor.length < 600
+            ? value.anchor
+            : null,
+        offset: Number.isFinite(value.offset) ? value.offset : 0,
+      };
+    }
     if (field === "query")
       return typeof value === "string" ? value.slice(0, 200) : undefined;
     if (field === "filter")

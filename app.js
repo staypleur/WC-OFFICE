@@ -900,7 +900,7 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
   button.classList.remove("undo-expiring");
   const tick = () => {
     const seconds = Math.ceil(remaining() / 1000);
-    const nextLabel = `${label} · ${pausedRemaining !== null ? "일시정지" : `${seconds}초`}`;
+    const nextLabel = `${label} · ${pausedRemaining !== null ? "일시정지 · " : ""}${seconds}초`;
     if (nextLabel !== lastLabel) {
       button.textContent = nextLabel;
       lastLabel = nextLabel;

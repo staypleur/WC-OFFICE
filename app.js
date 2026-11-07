@@ -1,6 +1,7 @@
 import { projectSummary } from "/project-summary.mjs";
 import { compareHistory, historyKey } from "/history-compare.mjs";
 const historySelections = new Map();
+const comparisonFilters = new Map();
 const $ = (selector) => document.querySelector(selector);
 let reportId = null;
 let chatId = null;
@@ -274,9 +275,9 @@ async function refresh() {
             s.total +
             "</span></div><div><small>필요한 승인</small><p>" +
             escape(s.approval) +
-            "</p></div><div><small>최근 결과 요약</small><p>" +
-            escape(s.result) +
-            "</p></div></div>" +
+            "</p></div><div><small>최근 결과 요약</small>" +
+            compactSummary(s.result, p.id + ":recent-summary") +
+            "</div></div>" +
             repositoryReportHtml(p) +
             '<div class="project-links"><a href="/projects/' +
             escape(p.id) +
@@ -521,6 +522,32 @@ $("#projects").addEventListener(
   true,
 );
 $("#projects").onclick = async (event) => {
+  const filterButton = event.target.closest("[data-change-filter]");
+  if (filterButton) {
+    const panel = filterButton.closest("[data-compare-project]");
+    const filter = filterButton.dataset.changeFilter;
+    comparisonFilters.set(panel.dataset.compareProject, filter);
+    panel
+      .querySelectorAll("[data-change-filter]")
+      .forEach((button) =>
+        button.setAttribute(
+          "aria-pressed",
+          String(button.dataset.changeFilter === filter),
+        ),
+      );
+    let count = 0;
+    panel.querySelectorAll("[data-change-group]").forEach((group) => {
+      group.hidden = filter !== "all" && group.dataset.changeGroup !== filter;
+      if (!group.hidden) count += group.querySelectorAll("li").length;
+    });
+    panel.querySelector(".filter-empty").hidden = count > 0;
+    panel.querySelector(".filter-status").textContent =
+      (filter === "all" ? "전체" : filterButton.dataset.filterLabel) +
+      " · " +
+      count +
+      "건 표시";
+    return;
+  }
   const refreshButton = event.target.closest("[data-refresh-repository]");
   if (refreshButton) {
     refreshButton.disabled = true;
@@ -744,6 +771,25 @@ function renderChat(project) {
   $("#current-work").classList.toggle("working", project.status === "작업 중");
 }
 
+function compactSummary(text, key) {
+  const full = text || "저장된 요약 없음";
+  const sentence = full.split(/(?<=[.!?])\s+/)[0];
+  const preview =
+    sentence.length > 160 ? sentence.slice(0, 157) + "…" : sentence;
+  return (
+    '<p class="summary-lead">' +
+    escape(preview) +
+    "</p>" +
+    (preview !== full
+      ? '<details class="summary-more" data-history-key="' +
+        escape(key) +
+        '"><summary>전체 요약 보기</summary><p>' +
+        escape(full) +
+        "</p></details>"
+      : "")
+  );
+}
+
 function comparisonResultHtml(p, selection) {
   const result = compareHistory(
     p.repositoryHistory || [],
@@ -761,9 +807,12 @@ function comparisonResultHtml(p, selection) {
     label +
     "</small><h4>" +
     escape(entry.stage || "진행 상태") +
-    "</h4><p>" +
-    escape(entry.summary || "저장된 요약 없음") +
-    "</p><code>" +
+    "</h4>" +
+    compactSummary(
+      entry.summary,
+      p.id + ":snapshot:" + label + ":" + entry.commit,
+    ) +
+    "<code>" +
     escape(entry.commit.slice(0, 8)) +
     "</code></div>";
   const categories = [
@@ -777,20 +826,35 @@ function comparisonResultHtml(p, selection) {
   const visibleCategories = categories.filter(
     (category) => category.type !== "other" || groupItems(category).length,
   );
+  let activeFilter = comparisonFilters.get(p.id) || "all";
+  if (!visibleCategories.some((category) => category.type === activeFilter))
+    activeFilter = "all";
+  const shownCount = result.categorized.filter(
+    (item) => activeFilter === "all" || item.type === activeFilter,
+  ).length;
+  const filterLabel =
+    categories.find((category) => category.type === activeFilter)?.short ||
+    "전체";
   const stats =
     '<div class="change-stats">' +
     visibleCategories
       .map(
         (category) =>
-          '<div class="change-stat change-' +
+          '<button type="button" class="change-stat change-' +
           category.type +
+          '" data-change-filter="' +
+          category.type +
+          '" data-filter-label="' +
+          category.short +
+          '" aria-pressed="' +
+          (activeFilter === category.type) +
           '"><span><b aria-hidden="true">' +
           category.icon +
           "</b> " +
           category.short +
           "</span><strong>" +
           groupItems(category).length +
-          "<small>건</small></strong></div>",
+          "<small>건</small></strong></button>",
       )
       .join("") +
     "</div>";
@@ -802,7 +866,13 @@ function comparisonResultHtml(p, selection) {
         (category) =>
           '<section class="change-group change-' +
           category.type +
-          '"><h5><span class="change-badge">' +
+          '" data-change-group="' +
+          category.type +
+          '" ' +
+          (activeFilter !== "all" && activeFilter !== category.type
+            ? "hidden"
+            : "") +
+          '><h5><span class="change-badge">' +
           category.icon +
           " " +
           category.short +
@@ -824,7 +894,17 @@ function comparisonResultHtml(p, selection) {
     '<div class="comparison-changes"><h4>기간 중 변경 내용 <span>' +
     result.count +
     "회 갱신</span></h4>" +
+    '<div class="change-filter-toolbar"><button type="button" class="filter-all" data-change-filter="all" aria-pressed="' +
+    (activeFilter === "all") +
+    '">전체 보기</button><span class="filter-status" role="status">' +
+    filterLabel +
+    " · " +
+    shownCount +
+    "건 표시</span></div>" +
     stats +
+    '<p class="filter-empty" ' +
+    (shownCount ? "hidden" : "") +
+    ">선택한 종류의 변경 내용이 없습니다.</p>" +
     (result.changes.length
       ? grouped
       : "<p>이 구간에 저장된 변경 요약이 없습니다. 위의 두 시점 요약을 참고해주세요.</p>") +
@@ -971,9 +1051,11 @@ function repositoryHistoryHtml(p) {
                       ? "커밋 비교 불가 · 당시 진행 요약"
                       : "저장 당시 진행 요약") +
                     "</p>") +
-                "<p>" +
-                escape(entry.summary || "") +
-                "</p></article>",
+                compactSummary(
+                  entry.summary,
+                  p.id + ":history-summary:" + entry.commit,
+                ) +
+                "</article>",
             )
             .join("") +
           "</details>",
@@ -1057,9 +1139,11 @@ function repositoryReportHtml(p) {
     syncHtml +
     deltaHtml +
     repositoryHistoryHtml(p) +
-    '<section class="repository-report"><h3>GitHub 코드 분석</h3><p>' +
-    escape(r.summary) +
-    '</p><div class="repository-columns">' +
+    '<details class="repository-report report-detail" data-history-key="' +
+    escape(p.id + ":report") +
+    '"><summary>상세 진행 보고서 <span>구현 내용 · 남은 작업 · 검증 근거</span></summary>' +
+    compactSummary(r.summary, p.id + ":report-summary") +
+    '<div class="repository-columns">' +
     list("구현 확인", r.implemented || []) +
     list("남은 작업 · 확인 필요", r.remaining || []) +
     '</div><p class="notice">' +
@@ -1082,6 +1166,6 @@ function repositoryReportHtml(p) {
         r.localPath +
         (r.sourceScope ? "\n" + r.sourceScope : ""),
     ) +
-    "</pre></details></section>"
+    "</pre></details></details>"
   );
 }

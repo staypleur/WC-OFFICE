@@ -2320,3 +2320,125 @@ aside .owner {
     padding: 14px;
   }
 }
+.change-stat {
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 0.18s,
+    background 0.18s,
+    transform 0.18s;
+}
+.change-stat:hover {
+  transform: translateY(-2px);
+  border-color: var(--change-color);
+}
+.change-stat[aria-pressed="true"] {
+  border-color: var(--change-color);
+  box-shadow:
+    0 0 0 1px var(--change-color),
+    0 8px 24px #0003;
+  background: var(--change-tint);
+}
+.change-stat:focus-visible,
+.filter-all:focus-visible {
+  outline: 2px solid #d4f2ff;
+  outline-offset: 4px;
+}
+.change-filter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+.filter-all {
+  border: 1px solid #466582;
+  border-radius: 24px;
+  padding: 8px 16px;
+  background: #152438;
+  color: #acc6df;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.filter-all[aria-pressed="true"] {
+  color: #e1f6ff;
+  border-color: #7ac5fa;
+  background: #234865;
+}
+.filter-status {
+  color: #92aac3;
+  font-size: 12px;
+}
+.change-group[hidden],
+.filter-empty[hidden] {
+  display: none;
+}
+.comparison-changes .filter-empty {
+  border: 1px dashed #39526c;
+  padding: 24px;
+  text-align: center;
+  border-radius: 12px;
+  color: #9fb4ca;
+}
+.summary-lead {
+  max-width: 76ch;
+  color: #d1dfed;
+  line-height: 1.85;
+}
+.summary-more {
+  margin: 8px 0 14px;
+}
+.summary-more > summary {
+  color: #83bbdf;
+  font-size: 12px;
+  cursor: pointer;
+}
+.summary-more > p {
+  padding: 12px 16px;
+  border-left: 2px solid #416583;
+  background: #ffffff03;
+  border-radius: 0 8px 8px 0;
+  line-height: 1.85;
+}
+.report-detail {
+  margin: 18px 0;
+  padding: 18px 20px;
+  border-radius: 12px;
+  border: 1px solid #324960;
+  background: #0c1725;
+}
+.report-detail > summary {
+  cursor: pointer;
+  color: #d8e8f7;
+  font-size: 14px;
+  font-weight: 600;
+}
+.report-detail > summary span {
+  display: inline-block;
+  margin-left: 12px;
+  color: #7e9bb7;
+  font-size: 11px;
+  font-weight: 400;
+}
+.report-detail[open] > summary {
+  padding-bottom: 18px;
+  border-bottom: 1px solid #294056;
+  margin-bottom: 16px;
+}
+.repository-columns li {
+  margin-bottom: 12px;
+  line-height: 1.85;
+}
+.comparison-snapshot h4 {
+  font-size: 15px;
+  line-height: 1.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .change-stat {
+    transition: none;
+  }
+  .change-stat:hover {
+    transform: none;
+  }
+}

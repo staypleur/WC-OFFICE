@@ -1,100 +1,412 @@
-import http from 'node:http';
-import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
-import { roles, runProvider } from './providers.mjs';
-try { process.loadEnvFile('.env'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+import http from "node:http";
+import path from "node:path";
+import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { roles, runProvider } from "./providers.mjs";
+import {
+  settingsFields,
+  api,
+  syncNotion,
+  launchCursor,
+  cursorStatus,
+  generateImage,
+  createMesh,
+  meshStatus,
+  copilotReview,
+} from "./integrations.mjs";
+import {
+  findUnity,
+  chooseFolder,
+  projectFolder,
+  parseUnityFiles,
+  writeUnity,
+  compileUnity,
+  openUnity,
+} from "./unity.mjs";
+try {
+  process.loadEnvFile(".env");
+} catch (e) {
+  if (e.code !== "ENOENT") throw e;
+}
+await mkdir("data", { recursive: true });
+async function load(file, fallback) {
+  try {
+    return JSON.parse(await readFile(file, "utf8"));
+  } catch (e) {
+    if (e.code === "ENOENT") return fallback;
+    throw e;
+  }
+}
+const settings = await load("data/settings.json", {});
+Object.assign(process.env, settings);
+const projects = await load("data/projects.json", []);
 const active = new Set();
-let codexVerified = false;
-
-await mkdir('data', { recursive: true });
-let projects;
-try { projects = JSON.parse(await readFile('data/projects.json', 'utf8')); }
-catch (error) { if (error.code !== 'ENOENT') throw error; projects = []; }
+const verified = new Set();
 let writes = Promise.resolve();
 function save() {
   const snapshot = JSON.stringify(projects, null, 2);
-  writes = writes.catch(() => {}).then(async () => { await writeFile('data/projects.tmp', snapshot); await rename('data/projects.tmp', 'data/projects.json'); });
+  writes = writes
+    .catch(() => {})
+    .then(async () => {
+      await writeFile("data/projects.tmp", snapshot);
+      await rename("data/projects.tmp", "data/projects.json");
+    });
   return writes;
 }
-for (const project of projects) {
-  for (const task of project.tasks) {
-    if (task.status === '완료') continue;
-    if (task.title === '기획서와 일정표 작성' && task.agent === 'Claude') {
-      task.agent = 'Codex';
-      task.provider = 'codex';
-    }
-    if (['코딩과 테스트', '완전한 단일 HTML 랜딩페이지 코드 작성. 실제 실행 테스트 여부를 명확히 표시'].includes(task.title) && task.agent === 'Codex') {
-      task.agent = 'Claude';
-      task.provider = 'claude';
-    }
+for (const p of projects) {
+  p.messages ||= [];
+  p.events ||= [];
+  p.tasks ||= [];
+  for (const record of [...p.messages, ...p.tasks]) {
+    const key = record.role ? "text" : "output";
+    if (
+      record[key]?.startsWith("Unity 컴파일 실패") &&
+      /entitlement|Access token is unavailable/i.test(record[key])
+    )
+      record[key] =
+        "Unity 라이선스 활성화 필요. Unity Hub에서 활성화한 뒤 저장한 코드를 재컴파일하세요.";
   }
-  if (project.status === '작업 중') {
-    project.status = '중단됨';
-    for (const task of project.tasks) if (task.status === '진행 중') task.status = '대기';
+  if (p.status === "작업 중") {
+    p.status = "중단됨";
+    for (const t of p.tasks) if (t.status === "진행 중") t.status = "중단됨";
   }
 }
 await save();
-async function execute(project) {
-  if (active.has(project.id)) return;
-  active.add(project.id);
-  project.status = '작업 중';
-  try {
-    for (const task of project.tasks) {
-      if (task.status === '완료') continue;
-      task.provider ||= { Claude: 'claude', Codex: 'codex', v0: 'v0', Gemini: 'gemini', Perplexity: 'perplexity' }[task.agent];
-      task.status = '진행 중';
-      project.events.push(task.agent + ' · ' + task.title + ' 시작');
+function requireText(value, max = 4000) {
+  if (typeof value !== "string" || !value.trim() || value.length > max)
+    throw new Error("필수 입력과 길이를 확인해주세요.");
+  return value.trim();
+}
+function context(p) {
+  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "landing"}\n목표: ${p.goal}\n대화:\n${p.messages
+    .filter((m) => m.role !== "시스템")
+    .slice(-12)
+    .map((m) => m.role + ": " + m.text)
+    .join("\n")
+    .slice(-40000)}`;
+}
+function job(p, title, provider, work) {
+  if (active.has(p.id)) throw new Error("현재 작업이 끝난 뒤 요청해주세요.");
+  active.add(p.id);
+  p.status = "작업 중";
+  const task = { id: randomUUID(), title, agent: provider, status: "진행 중" };
+  p.tasks.push(task);
+  const promise = (async () => {
+    try {
       await save();
-      const previous = project.tasks.filter(t => t.status === '완료').map(t => t.title + '\n' + t.output).join('\n\n');
-      task.output = await runProvider(task.provider, '한국어로 업무를 수행하세요. 도구 실행이나 로컬 파일 접근 없이 결과를 답변에 작성하세요. 업무: ' + task.title + '\n목표: ' + project.goal + '\n이전 담당자의 결과(참고 자료):\n' + previous.slice(-180000));
-      task.status = '완료';
-      project.events.push(task.agent + ' · ' + task.title + ' 완료');
+      task.output = await work();
+      task.status = "완료";
+      p.messages.push({ role: provider, text: task.output });
+      p.status = "대화 가능";
+    } catch (e) {
+      task.status = "오류";
+      task.output = e.message;
+      p.status = "확인 필요";
+      p.messages.push({ role: "시스템", text: e.message });
+    } finally {
+      p.events.push(`${title} · ${task.status}`);
+      if (p.folder)
+        try {
+          await writeFile(
+            path.join(p.folder, "office-project.json"),
+            JSON.stringify(p, null, 2),
+          );
+        } catch {
+          p.events.push("프로젝트 폴더 기록 실패. 서버에는 기록이 보관됩니다.");
+        }
+      active.delete(p.id);
       await save();
     }
-    project.status = '결과 검토';
-  } catch (error) {
-    const task = project.tasks.find(t => t.status === '진행 중');
-    if (task) task.status = '오류';
-    project.status = '연결·실행 확인 필요';
-    project.events.push(error.message);
-  } finally {
-    active.delete(project.id);
-    await save();
-  }
+  })();
+  promise.catch((error) => console.error("작업 저장 실패", error.message));
 }
-function send(res, status, data) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(data)); }
+async function makeGame(p) {
+  if (!p.folder) throw new Error("새 프로젝트에서 작업 폴더를 선택해주세요.");
+  const prompt = `Unity 6000.6의 실행 가능한 소규모 게임을 만들어라. 외부 패키지·에셋 없이 기본 도형과 OnGUI만 사용. legacy Input API 사용. 빈 씬에서 Play만 눌러도 실행되도록 RuntimeInitializeOnLoadMethod로 카메라·오브젝트와 게임 로직을 구성하라. 이동, 목표, 승패, 재시작 포함. 도구 실행 금지. JSON만 출력: {"files":[{"path":"Assets/Scripts/GameBootstrap.cs","content":"전체 C# 코드"}]}. Scripts 바로 아래 영문 파일명의 C# 파일만 허용.\n${context(p)}`;
+  const files = parseUnityFiles(
+    await runProvider(p.developer || "claude", prompt),
+  );
+  const folder = path.join(
+    p.folder,
+    `Unity-${Date.now()}-${randomUUID().slice(0, 6)}`,
+  );
+  await mkdir(folder);
+  await writeUnity(folder, files);
+  p.unityFolder = folder;
+  p.approved = false;
+  await save();
+  return `${files.length}개 C# 파일 저장\n${folder}\n${await compileUnity(folder)}`;
+}
+function send(res, status, data) {
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(JSON.stringify(data));
+}
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.headers.host !== '127.0.0.1:4310' && req.headers.host !== 'localhost:4310') return send(res, 403, { error: '허용되지 않은 주소입니다.' });
-    if (req.method === 'GET' && req.url === '/') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(await readFile('index.html'));
+    if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
+      return send(res, 403, { error: "허용되지 않은 주소입니다." });
+    if (req.method === "GET" && ["/", "/app.js"].includes(req.url)) {
+      res.writeHead(200, {
+        "Content-Type":
+          req.url === "/"
+            ? "text/html; charset=utf-8"
+            : "text/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      return res.end(await readFile(req.url === "/" ? "index.html" : "app.js"));
     }
-    if (req.method === 'GET' && req.url === '/api/projects') return send(res, 200, projects);
-    if (req.method === 'GET' && req.url === '/api/connections') return send(res, 200, Object.fromEntries(roles.map(role => [role.id, role.id === 'codex' ? codexVerified : !!process.env[role.key]])));
-    if (req.method !== 'POST' || req.headers.origin !== `http://${req.headers.host}`) return send(res, 403, { error: '허용되지 않은 요청입니다.' });
-    let raw = '';
-    for await (const chunk of req) { raw += chunk; if (Buffer.byteLength(raw) > 16000) return send(res, 413, { error: '입력 내용이 너무 깁니다.' }); }
-    let body;
-    try { body = JSON.parse(raw); } catch { return send(res, 400, { error: '입력을 확인해주세요.' }); }
-    if (req.url === '/api/connections/codex/check') {
-      try { const reply = await runProvider('codex', '도구를 사용하지 말고 WC Office 연결 확인이라고만 답하세요.'); codexVerified = true; return send(res, 200, { reply }); }
-      catch (error) { codexVerified = false; return send(res, 400, { error: error.message }); }
+    if (req.method === "GET" && req.url === "/api/projects")
+      return send(res, 200, projects);
+    if (req.method === "GET" && req.url === "/api/config")
+      return send(res, 200, {
+        defaultFolder: process.cwd(),
+        unity: await findUnity(),
+        settings: settingsFields.map((key) => ({
+          key,
+          configured: !!process.env[key],
+        })),
+        connections: Object.fromEntries(
+          [
+            ...roles,
+            { id: "cursor", key: "CURSOR_API_KEY" },
+            { id: "notion", key: "NOTION_TOKEN" },
+            { id: "stability", key: "STABILITY_API_KEY" },
+            { id: "meshy", key: "MESHY_API_KEY" },
+          ].map((r) => [
+            r.id,
+            verified.has(r.id)
+              ? "응답 확인됨"
+              : r.key && process.env[r.key]
+                ? "키 설정됨"
+                : r.id === "codex"
+                  ? "로컬 로그인 사용"
+                  : "연결 필요",
+          ]),
+        ),
+      });
+    if (
+      req.method !== "POST" ||
+      req.headers.origin !== `http://${req.headers.host}`
+    )
+      return send(res, 403, { error: "허용되지 않은 요청입니다." });
+    let raw = "";
+    for await (const chunk of req) {
+      raw += chunk;
+      if (Buffer.byteLength(raw) > 64000)
+        return send(res, 413, { error: "입력이 너무 깁니다." });
     }
-    if (req.url === '/api/projects/run') {
-      const project = projects.find(p => p.id === body.id);
-      if (!project) return send(res, 404, { error: '프로젝트를 찾을 수 없습니다.' });
-      if (active.size && !active.has(project.id)) return send(res, 409, { error: '현재 작업이 끝난 뒤 실행해주세요.' });
-      if (project.status === '결과 검토') return send(res, 409, { error: '이미 실행을 완료했습니다.' });
-      void execute(project).catch(console.error);
-      return send(res, 202, { status: project.status });
+    const body = JSON.parse(raw);
+    if (!body || typeof body !== "object")
+      throw new Error("잘못된 입력입니다.");
+    if (req.url === "/api/folder")
+      return send(res, 200, { folder: await chooseFolder() });
+    if (req.url === "/api/settings") {
+      if (active.size)
+        throw new Error("진행 중인 작업이 끝난 뒤 설정을 변경해주세요.");
+      for (const [key, value] of Object.entries(body))
+        if (
+          !settingsFields.includes(key) ||
+          typeof value !== "string" ||
+          value.length > 1000
+        )
+          throw new Error("설정 값이 올바르지 않습니다.");
+      const next = { ...settings, ...body };
+      await writeFile("data/settings.tmp", JSON.stringify(next));
+      await rename("data/settings.tmp", "data/settings.json");
+      Object.assign(settings, next);
+      Object.assign(process.env, next);
+      verified.clear();
+      return send(res, 200, { ok: true });
     }
-    if (req.url === '/api/projects') {
-      if (typeof body.goal !== 'string' || !body.goal.trim() || body.goal.length > 4000) return send(res, 400, { error: '목표를 1~4000자로 입력해주세요.' });
-      const project = { id: randomUUID(), goal: body.goal.trim(), createdAt: new Date().toISOString(), status: '연결 대기', tasks: [ ['Codex', '기획서와 일정표 작성'], ['v0', '화면 디자인'], ['Claude', '완전한 단일 HTML 랜딩페이지 코드 작성. 실제 실행 테스트 여부를 명확히 표시'], ['Gemini', '요구사항과 코드의 누락·오류를 독립 검토하고 미검증 항목 명시'] ].map(([agent, title]) => ({ agent, title, status: '대기' })), events: ['목표를 접수했습니다. AI 실행 연결이 준비되면 작업을 시작할 수 있습니다.'] };
-      projects.unshift(project); await save(); if (!active.size) void execute(project).catch(console.error); return send(res, 201, project);
+    if (req.url === "/api/check") {
+      if (body.provider === "codex")
+        await runProvider(
+          "codex",
+          "도구 없이 WC Office 연결 확인이라고만 답하세요.",
+        );
+      else if (body.provider === "notion")
+        await api(
+          "https://api.notion.com/v1/users/me",
+          process.env.NOTION_TOKEN,
+          undefined,
+          { "Notion-Version": "2022-06-28" },
+        );
+      else if (body.provider === "cursor")
+        await api(
+          "https://api.cursor.com/v1/agents?limit=1",
+          process.env.CURSOR_API_KEY,
+        );
+      else throw new Error("지원하지 않는 연결 검사입니다.");
+      verified.add(body.provider);
+      return send(res, 200, { message: "실제 응답 확인됨" });
     }
-    return send(res, 404, { error: '요청을 찾을 수 없습니다.' });
-  } catch (error) { console.error(error.message); send(res, 500, { error: '처리하지 못했습니다. 다시 시도해주세요.' }); }
+    if (req.url === "/api/projects") {
+      const name = requireText(body.name, 80),
+        goal = requireText(body.goal);
+      if (
+        !["unity", "landing"].includes(body.type) ||
+        !["claude", "codex"].includes(body.developer)
+      )
+        throw new Error("프로젝트 유형과 개발 담당을 선택해주세요.");
+      const id = randomUUID();
+      const folder = await projectFolder(requireText(body.folder, 1000), id);
+      const p = {
+        id,
+        name,
+        goal,
+        folder,
+        type: body.type,
+        developer: body.developer,
+        repository: typeof body.repository === "string" ? body.repository : "",
+        createdAt: new Date().toISOString(),
+        status: "대화 준비",
+        tasks: [],
+        messages: [],
+        events: ["프로젝트 생성"],
+      };
+      await writeFile(
+        path.join(folder, "project.json"),
+        JSON.stringify({ id, name, goal, type: p.type }, null, 2),
+      );
+      projects.unshift(p);
+      await save();
+      return send(res, 201, p);
+    }
+    const p = projects.find((p) => p.id === body.id);
+    if (!p) return send(res, 404, { error: "프로젝트를 찾지 못했습니다." });
+    if (req.url === "/api/project/update") {
+      if (active.has(p.id)) throw new Error("작업 종료 후 수정해주세요.");
+      if (!["claude", "codex"].includes(body.developer))
+        throw new Error("개발 담당을 확인해주세요.");
+      const name = requireText(body.name, 80),
+        goal = requireText(body.goal),
+        repository =
+          typeof body.repository === "string" ? body.repository.trim() : "";
+      if (
+        repository &&
+        !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?$/.test(repository)
+      )
+        throw new Error("GitHub 저장소 URL을 확인해주세요.");
+      Object.assign(p, {
+        name,
+        goal,
+        repository,
+        developer: body.developer,
+        approved: false,
+      });
+      await save();
+    } else if (req.url === "/api/compile") {
+      job(p, "게임 제작 · Unity 컴파일", "Unity", async () => {
+        if (!p.unityFolder) throw new Error("게임 코드부터 생성해주세요.");
+        return compileUnity(p.unityFolder);
+      });
+    } else if (req.url === "/api/chat") {
+      if (active.has(p.id)) throw new Error("현재 답변을 기다려주세요.");
+      p.messages.push({ role: "우찬", text: requireText(body.message) });
+      job(p, "기획 대화", "Codex", async () =>
+        runProvider(
+          "codex",
+          `한국어 게임 총괄 기획자. 사용자의 대화에 답하고 목표를 개발 작업과 완료 기준으로 정리하라. 도구나 파일 접근 없이 답변만 작성.\n${context(p)}`,
+        ),
+      );
+    } else if (req.url === "/api/build") {
+      job(
+        p,
+        p.type === "unity" ? "게임 제작 · Unity 컴파일" : "랜딩페이지 제작",
+        p.developer === "codex" ? "Codex" : "Claude",
+        async () => {
+          if (p.type === "unity") return makeGame(p);
+          if (!p.folder)
+            throw new Error("폴더를 지정한 새 프로젝트를 만들어주세요.");
+          const html = await runProvider(
+            p.developer || "claude",
+            "외부 의존성 없는 완전한 단일 HTML 랜딩페이지 코드를 작성하세요. HTML만 답변하세요. " +
+              context(p),
+          );
+          const file = path.join(p.folder, "landing-" + Date.now() + ".html");
+          await writeFile(
+            file,
+            html
+              .trim()
+              .replace(/^```(?:html)?\s*/, "")
+              .replace(/\s*```$/, ""),
+          );
+          return "HTML 저장 완료 " + file + "\n" + html;
+        },
+      );
+    } else if (req.url === "/api/unity/open") {
+      if (active.has(p.id) || !p.unityFolder)
+        throw new Error("제작 완료 후 열어주세요.");
+      await openUnity(p.unityFolder);
+    } else if (req.url === "/api/approve") {
+      if (
+        active.has(p.id) ||
+        p.tasks.filter((t) => t.title === "게임 제작 · Unity 컴파일").at(-1)
+          ?.status !== "완료"
+      )
+        throw new Error("최신 버전의 컴파일 통과 후 승인해주세요.");
+      p.approved = true;
+      p.status = "승인 완료";
+      await save();
+    } else if (req.url === "/api/notion") {
+      job(p, "Notion 문서 동기화", "Notion", async () => {
+        if (!process.env.NOTION_PARENT_PAGE_ID)
+          throw new Error("Notion 상위 페이지 ID가 필요합니다.");
+        p.notion = await syncNotion(p);
+        return `새 문서 저장 완료 ${p.notion.url}`;
+      });
+    } else if (req.url === "/api/cursor") {
+      job(p, "Cursor 원격 개발", "Cursor", async () => {
+        if (p.cursor?.run?.id)
+          throw new Error("기존 Cursor 작업 상태를 확인해주세요.");
+        p.cursor = await launchCursor(
+          p,
+          `${context(p)}\nUnity 게임 구현과 테스트 후 별도 브랜치의 PR로 제출하라. 로컬 생성 파일은 자동 업로드되지 않으므로 원격 저장소 기준으로 작업하라.`,
+        );
+        return `원격 작업 제출 완료. 로컬 폴더와 자동 병합되지 않습니다.\n${p.cursor.agent?.url || JSON.stringify(p.cursor)}`;
+      });
+    } else if (req.url === "/api/cursor/status") {
+      job(p, "Cursor 상태 확인", "Cursor", async () => {
+        if (!p.cursor) throw new Error("Cursor 작업을 먼저 제출해주세요.");
+        p.cursorResult = await cursorStatus(p.cursor);
+        return JSON.stringify(p.cursorResult, null, 2);
+      });
+    } else if (req.url === "/api/review") {
+      job(p, "코드 검토", "GitHub Copilot", async () =>
+        copilotReview(
+          `도구를 실행하지 말고 코드와 요구사항을 검토하라. ${context(p)}\n${p.unityFolder ? await readFile(path.join(p.unityFolder, "Assets/Scripts/GameBootstrap.cs"), "utf8").catch(() => "") : ""}`,
+        ),
+      );
+    } else if (req.url === "/api/image") {
+      const prompt = requireText(body.prompt);
+      job(p, "2D 이미지 생성", "Stable Diffusion", async () => {
+        if (!p.folder) throw new Error("새 프로젝트를 생성해주세요.");
+        const file = path.join(p.folder, `image-${Date.now()}.png`);
+        await writeFile(file, await generateImage(prompt));
+        return `이미지 저장 완료\n${file}`;
+      });
+    } else if (req.url === "/api/mesh") {
+      const prompt = requireText(body.prompt);
+      job(p, "3D 모델 생성", "Meshy", async () => {
+        if (p.mesh) throw new Error("기존 모델 상태를 확인해주세요.");
+        p.mesh = await createMesh(prompt);
+        return `3D 생성 작업 제출됨 · ${p.mesh.result}`;
+      });
+    } else if (req.url === "/api/mesh/status") {
+      job(p, "3D 모델 상태", "Meshy", async () => {
+        if (!p.mesh) throw new Error("모델 생성부터 시작해주세요.");
+        p.meshResult = await meshStatus(p.mesh.result);
+        return JSON.stringify(p.meshResult, null, 2);
+      });
+    } else return send(res, 404, { error: "요청을 찾지 못했습니다." });
+    return send(res, 202, { ok: true });
+  } catch (e) {
+    return send(res, 400, { error: e.message });
+  }
 });
-server.listen(4310, '127.0.0.1', () => console.log('WC Office http://127.0.0.1:4310'));
+server.listen(4310, "127.0.0.1", () =>
+  console.log("WC Office http://127.0.0.1:4310"),
+);

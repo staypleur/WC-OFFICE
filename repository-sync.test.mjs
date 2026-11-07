@@ -10,6 +10,69 @@ import {
 
 const old = "a".repeat(40),
   next = "b".repeat(40);
+
+test("manual refresh targets one project and coalesces repeated clicks", async () => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let heads = 0;
+  const f = fixture({
+    getHead: async () => {
+      heads++;
+      await gate;
+      return { sha: next, branch: "main", message: "New code" };
+    },
+  });
+  const first = f.sync.refresh("one");
+  const second = f.sync.refresh("one");
+  assert.equal(first, second);
+  release();
+  await Promise.all([first, second]);
+  assert.equal(heads, 1);
+  assert.equal(f.calls(), 1);
+  assert.equal(f.project.repositorySync.state, "current");
+});
+
+test("manual refresh rejects missing, deleted and actively running projects", async () => {
+  const f = fixture();
+  await assert.rejects(f.sync.refresh("missing"));
+  f.project.deletedAt = "today";
+  await assert.rejects(f.sync.refresh("one"));
+  const busy = fixture({ isActive: () => true });
+  await assert.rejects(busy.sync.refresh("one"));
+});
+
+test("manual refresh works for held projects while another project is being checked", async () => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const one = {
+    id: "one",
+    repository: "https://github.com/user/one",
+    repositoryReport: { commit: old },
+  };
+  const two = {
+    id: "two",
+    repository: "https://github.com/user/two",
+    onHold: true,
+    repositoryReport: { commit: old },
+  };
+  const sync = createRepositorySync({
+    projects: [one, two],
+    save: async () => {},
+    getHead: async (p) => {
+      if (p.id === "one") await gate;
+      return { sha: old };
+    },
+  });
+  const polling = sync.poll();
+  await sync.refresh("two");
+  assert.equal(two.repositorySync.state, "current");
+  release();
+  await polling;
+});
 function fixture(overrides = {}) {
   const project = {
     id: "one",

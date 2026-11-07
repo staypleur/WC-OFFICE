@@ -496,6 +496,10 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, {
         error: "삭제한 프로젝트입니다. 먼저 복원해주세요.",
       });
+    if (req.url === "/api/project/refresh") {
+      await repositorySync.refresh(p.id);
+      return send(res, 200, { sync: p.repositorySync });
+    }
     if (req.url === "/api/project/hold") {
       if (active.has(p.id))
         throw new Error("진행 중인 작업이 끝난 뒤 보류해주세요.");

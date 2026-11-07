@@ -474,6 +474,24 @@ $("#projects").addEventListener(
   true,
 );
 $("#projects").onclick = async (event) => {
+  const refreshButton = event.target.closest("[data-refresh-repository]");
+  if (refreshButton) {
+    refreshButton.disabled = true;
+    refreshButton.textContent = "갱신 중…";
+    try {
+      const result = await request("/api/project/refresh", {
+        id: refreshButton.dataset.refreshRepository,
+      });
+      if (result.sync?.state === "error") error(result.sync.error);
+    } catch (e) {
+      error(e.message);
+    } finally {
+      refreshButton.disabled = false;
+      refreshButton.textContent = "↻ 새로고침";
+      await refresh();
+    }
+    return;
+  }
   const hold = event.target.closest("[data-hold]");
   if (hold) {
     hold.disabled = true;
@@ -691,7 +709,17 @@ function repositoryReportHtml(p) {
   const syncHtml = p.repository
     ? '<div class="repository-sync"><span>' +
       escape(labels[sync.state] || "자동 확인 대기") +
-      "</span><small>서버 실행 중 약 5분마다 확인" +
+      '</span><button type="button" class="repository-refresh" data-refresh-repository="' +
+      escape(p.id) +
+      '" ' +
+      (["checking", "updating"].includes(sync.state) || p.status === "작업 중"
+        ? "disabled"
+        : "") +
+      ">" +
+      (["checking", "updating"].includes(sync.state)
+        ? "갱신 중…"
+        : "↻ 새로고침") +
+      "</button><small>서버 실행 중 약 5분마다 확인" +
       (sync.checkedAt
         ? " · 마지막 확인 " +
           escape(new Date(sync.checkedAt).toLocaleString("ko-KR"))

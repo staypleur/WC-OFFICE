@@ -278,6 +278,88 @@ export function createRepositorySync({
   now = () => new Date().toISOString(),
 }) {
   let running = false;
+  const pending = new Map();
+  function refresh(id) {
+    if (pending.has(id)) return pending.get(id);
+    const project = projects.find((p) => p.id === id);
+    if (!project || project.deletedAt)
+      return Promise.reject(new Error("프로젝트를 찾지 못했습니다."));
+    if (!repositorySlug(project.repository))
+      return Promise.reject(new Error("GitHub 저장소를 먼저 연결해주세요."));
+    if (isActive(id))
+      return Promise.reject(
+        new Error("진행 중인 작업이 끝난 뒤 새로고침해주세요."),
+      );
+    const task = Promise.resolve()
+      .then(() => syncProject(project))
+      .finally(() => pending.delete(id));
+    pending.set(id, task);
+    return task;
+  }
+  async function syncProject(project) {
+    const repository = project.repository;
+    const valid = () => !project.deletedAt && project.repository === repository;
+    try {
+      project.repositorySync = {
+        ...project.repositorySync,
+        state: "checking",
+        lastAttemptAt: now(),
+        error: null,
+      };
+      await save();
+      const latest = await getHead(project);
+      if (!valid()) return;
+      if (project.repositoryReport?.commit === latest.sha) {
+        project.repositorySync = {
+          state: "current",
+          checkedAt: now(),
+          latestCommit: latest.sha,
+          error: null,
+        };
+        await save();
+        return;
+      }
+      project.repositorySync = {
+        state: "updating",
+        checkedAt: now(),
+        latestCommit: latest.sha,
+        error: null,
+      };
+      await save();
+      const evidence = await getEvidence(project, latest);
+      if (!valid()) return;
+      const summary = await generate(project, latest, evidence);
+      if (!valid()) return;
+      project.repositoryReport = {
+        ...summary,
+        commit: latest.sha,
+        branch: latest.branch,
+        checkedAt: now(),
+        localPath: evidence.snapshot,
+        latestCommit: latest.message.split("\n")[0],
+        githubStatus: evidence.githubStatus,
+        automatic: true,
+        sourceScope: "최신 변경과 선별 코드·문서 발췌 (전체 실행 검증 아님)",
+      };
+      project.repositorySync = {
+        state: "current",
+        checkedAt: now(),
+        updatedAt: now(),
+        latestCommit: latest.sha,
+        error: null,
+      };
+      await save();
+    } catch (error) {
+      if (!valid()) return;
+      project.repositorySync = {
+        ...project.repositorySync,
+        state: "error",
+        lastAttemptAt: now(),
+        error: error.message,
+      };
+      await save();
+    }
+  }
   async function poll() {
     if (running) return false;
     running = true;
@@ -289,70 +371,7 @@ export function createRepositorySync({
           !repositorySlug(project.repository)
         )
           continue;
-        const repository = project.repository;
-        const valid = () =>
-          !project.deletedAt && project.repository === repository;
-        try {
-          project.repositorySync = {
-            ...project.repositorySync,
-            state: "checking",
-            lastAttemptAt: now(),
-            error: null,
-          };
-          await save();
-          const latest = await getHead(project);
-          if (!valid()) continue;
-          if (project.repositoryReport?.commit === latest.sha) {
-            project.repositorySync = {
-              state: "current",
-              checkedAt: now(),
-              latestCommit: latest.sha,
-              error: null,
-            };
-            await save();
-            continue;
-          }
-          project.repositorySync = {
-            state: "updating",
-            checkedAt: now(),
-            latestCommit: latest.sha,
-            error: null,
-          };
-          await save();
-          const evidence = await getEvidence(project, latest);
-          if (!valid()) continue;
-          const summary = await generate(project, latest, evidence);
-          if (!valid()) continue;
-          project.repositoryReport = {
-            ...summary,
-            commit: latest.sha,
-            branch: latest.branch,
-            checkedAt: now(),
-            localPath: evidence.snapshot,
-            latestCommit: latest.message.split("\n")[0],
-            githubStatus: evidence.githubStatus,
-            automatic: true,
-            sourceScope:
-              "최신 변경과 선별 코드·문서 발췌 (전체 실행 검증 아님)",
-          };
-          project.repositorySync = {
-            state: "current",
-            checkedAt: now(),
-            updatedAt: now(),
-            latestCommit: latest.sha,
-            error: null,
-          };
-          await save();
-        } catch (error) {
-          if (!valid()) continue;
-          project.repositorySync = {
-            ...project.repositorySync,
-            state: "error",
-            lastAttemptAt: now(),
-            error: error.message,
-          };
-          await save();
-        }
+        await refresh(project.id);
       }
     } finally {
       running = false;
@@ -361,6 +380,7 @@ export function createRepositorySync({
   }
   return {
     poll,
+    refresh,
     get running() {
       return running;
     },

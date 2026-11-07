@@ -1897,3 +1897,23 @@ aside .owner {
   color: #e9b0b8;
   margin: 4px 0;
 }
+.repository-refresh {
+  align-self: flex-start;
+  border: 1px solid #388de866;
+  border-radius: 10px;
+  padding: 8px 14px;
+  color: #d9f3ff;
+  background: #163655;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.repository-refresh:hover {
+  background: #225581;
+  border-color: #78d9ff;
+}
+.repository-refresh:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}

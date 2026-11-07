@@ -15,7 +15,7 @@ function setPageVisibility(id) {
     ],
     ["#project-hub", ["/projects", "/new", "/projects/active", "room"]],
     ["#marketing-page", ["/marketing"]],
-    [".section-index,#form", ["/new"]],
+    ["#form", ["/new"]],
     ["#ai-team", ["/team", "/settings"]],
     [".room-toolbar,#workspace", ["room"]],
   ];
@@ -288,9 +288,6 @@ function renderProject(project) {
 async function config() {
   const data = await request("/api/config");
   if (!$("#folder").value) $("#folder").value = data.defaultFolder;
-  $("#unity-status").textContent = data.unity
-    ? "Unity Editor 감지됨"
-    : "Unity Editor 설치 필요";
   for (const [name, status] of Object.entries(data.connections)) {
     const node = document.getElementById(name);
     if (node) node.textContent = status;

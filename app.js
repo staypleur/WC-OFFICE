@@ -1,8 +1,29 @@
 import { projectSummary } from "/project-summary.mjs";
-import { compareHistory, historyKey, searchParts } from "/history-compare.mjs";
-const historySelections = new Map();
-const comparisonFilters = new Map();
-const comparisonQueries = new Map();
+import {
+  compareHistory,
+  historyKey,
+  searchParts,
+  createComparisonPreference,
+  restoreHistorySelection,
+} from "/history-compare.mjs";
+let comparisonStorage;
+try {
+  comparisonStorage = window.localStorage;
+} catch {
+  /* Browser may block storage. */
+}
+const historySelections = createComparisonPreference(
+  comparisonStorage,
+  "dates",
+);
+const comparisonFilters = createComparisonPreference(
+  comparisonStorage,
+  "filter",
+);
+const comparisonQueries = createComparisonPreference(
+  comparisonStorage,
+  "query",
+);
 const $ = (selector) => document.querySelector(selector);
 let reportId = null;
 let chatId = null;
@@ -902,8 +923,13 @@ function comparisonResultHtml(p, selection) {
     (category) => category.type !== "other" || groupItems(category).length,
   );
   let activeFilter = comparisonFilters.get(p.id) || "all";
-  if (!visibleCategories.some((category) => category.type === activeFilter))
+  if (
+    activeFilter !== "all" &&
+    !visibleCategories.some((category) => category.type === activeFilter)
+  ) {
     activeFilter = "all";
+    comparisonFilters.set(p.id, activeFilter);
+  }
   const shownCount = result.categorized.filter(
     (item) => activeFilter === "all" || item.type === activeFilter,
   ).length;
@@ -1014,10 +1040,11 @@ function historyComparisonHtml(p) {
   );
   if (entries.length < 2)
     return '<div class="history-comparison"><h4>날짜별 비교</h4><p class="comparison-hint">기록이 2개 이상 쌓이면 두 날짜를 선택해 비교할 수 있습니다.</p></div>';
-  const selection = historySelections.get(p.id) || {
-    from: historyKey(entries[0]),
-    to: historyKey(entries.at(-1)),
-  };
+  const selection = restoreHistorySelection(
+    entries,
+    historySelections.get(p.id),
+  );
+  historySelections.set(p.id, selection);
   const selector = (label, side) =>
     "<label>" +
     label +

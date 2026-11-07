@@ -2,6 +2,62 @@ export function historyKey(entry) {
   return `${entry.repository}@${entry.commit}`;
 }
 
+export function createComparisonPreference(storage, field) {
+  const memory = new Map();
+  const normalize = (value) => {
+    if (field === "query")
+      return typeof value === "string" ? value.slice(0, 200) : undefined;
+    if (field === "filter")
+      return ["all", "added", "modified", "removed", "other"].includes(value)
+        ? value
+        : undefined;
+    if (
+      field === "dates" &&
+      value &&
+      typeof value.from === "string" &&
+      typeof value.to === "string" &&
+      value.from.length < 400 &&
+      value.to.length < 400
+    )
+      return { from: value.from, to: value.to };
+    return undefined;
+  };
+  const key = (id) =>
+    `wc-office:comparison:v1:${encodeURIComponent(id)}:${field}`;
+  return {
+    get(id) {
+      if (memory.has(id)) return memory.get(id);
+      try {
+        const value = normalize(
+          JSON.parse(storage?.getItem(key(id)) || "null"),
+        );
+        memory.set(id, value);
+        return value;
+      } catch {
+        return undefined;
+      }
+    },
+    set(id, input) {
+      const value = normalize(input);
+      if (value === undefined) return;
+      memory.set(id, value);
+      try {
+        storage?.setItem(key(id), JSON.stringify(value));
+      } catch {
+        /* Keep working when browser storage is unavailable. */
+      }
+    },
+  };
+}
+
+export function restoreHistorySelection(entries, saved) {
+  if (entries.length < 2) return null;
+  const keys = entries.map(historyKey);
+  if (saved && keys.includes(saved.from) && keys.includes(saved.to))
+    return saved;
+  return { from: keys[0], to: keys.at(-1) };
+}
+
 export function searchParts(text, query) {
   const term = query.trim();
   if (!term) return [{ text, match: false }];

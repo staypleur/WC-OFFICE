@@ -5,10 +5,89 @@ import {
   historyKey,
   classifyChange,
   searchParts,
+  createComparisonPreference,
+  restoreHistorySelection,
 } from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("comparison settings survive reload independently for each project and field", () => {
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  const query = createComparisonPreference(storage, "query");
+  query.set("one", "보고서");
+  query.set("two", "로그인");
+  createComparisonPreference(storage, "filter").set("one", "modified");
+  createComparisonPreference(storage, "dates").set("one", {
+    from: "a",
+    to: "b",
+  });
+  assert.equal(
+    createComparisonPreference(storage, "query").get("one"),
+    "보고서",
+  );
+  assert.equal(
+    createComparisonPreference(storage, "query").get("two"),
+    "로그인",
+  );
+  assert.equal(
+    createComparisonPreference(storage, "filter").get("one"),
+    "modified",
+  );
+  assert.deepEqual(createComparisonPreference(storage, "dates").get("one"), {
+    from: "a",
+    to: "b",
+  });
+  query.set("one", "");
+  createComparisonPreference(storage, "filter").set("one", "all");
+  assert.equal(createComparisonPreference(storage, "query").get("one"), "");
+  assert.equal(createComparisonPreference(storage, "filter").get("one"), "all");
+  assert.equal(
+    createComparisonPreference(storage, "query").get("two"),
+    "로그인",
+  );
+});
+
+test("invalid saved settings and unavailable storage do not break comparisons", () => {
+  assert.equal(
+    createComparisonPreference({ getItem: () => "{" }, "dates").get("one"),
+    undefined,
+  );
+  assert.equal(
+    createComparisonPreference({ getItem: () => '"invalid"' }, "filter").get(
+      "one",
+    ),
+    undefined,
+  );
+  const store = createComparisonPreference(
+    {
+      getItem() {
+        throw Error("blocked");
+      },
+      setItem() {
+        throw Error("full");
+      },
+    },
+    "query",
+  );
+  assert.equal(store.get("one"), undefined);
+  store.set("one", "검색");
+  assert.equal(store.get("one"), "검색");
+});
+
+test("saved dates remain stable as new history arrives and stale dates fall back", () => {
+  const saved = { from: historyKey(entries[0]), to: historyKey(entries[1]) };
+  assert.deepEqual(restoreHistorySelection(entries, saved), saved);
+  assert.deepEqual(
+    restoreHistorySelection(entries, { from: "deleted", to: saved.to }),
+    { from: historyKey(entries[0]), to: historyKey(entries[2]) },
+  );
+  assert.equal(restoreHistorySelection([], saved), null);
+});
 
 test("search finds all literal matches without changing the original text", () => {
   const text = "GitHub 저장 / github 저장";

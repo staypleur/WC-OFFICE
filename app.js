@@ -709,12 +709,19 @@ const favoritesOnlyPreferences = createComparisonPreference(
   comparisonStorage,
   "favoritesOnly",
 );
+const approvalOnlyPreferences = createComparisonPreference(
+  comparisonStorage,
+  "approvalOnly",
+);
 function applyProjectNameSearch() {
   applyProjectSort();
   const query = $("#project-name-query").value.trim();
   const favoritesOnly =
     favoritesOnlyPreferences.get("project-list:" + location.pathname) === true;
   $("#favorites-only").setAttribute("aria-pressed", String(favoritesOnly));
+  const approvalOnly =
+    approvalOnlyPreferences.get("project-list:" + location.pathname) === true;
+  $("#approval-only").setAttribute("aria-pressed", String(approvalOnly));
   const type =
     projectTypePreferences.get("project-list:" + location.pathname) || "all";
   document
@@ -729,24 +736,38 @@ function applyProjectNameSearch() {
   const typeCounts = { all: 0, unity: 0, web: 0, roblox: 0 };
   let matched = 0;
   let favoriteCount = 0;
+  let approvalCount = 0;
   for (const card of cards) {
     const p = projects.find((project) => project.id === card.dataset.project);
     const parts = searchParts(p?.name || p?.goal || "", query);
     const matchesName = !query || parts.some((part) => part.match);
+    const needsApproval = projectSummary(p || {}).ready;
+    const matchesApproval = !approvalOnly || needsApproval;
     if (
       matchesName &&
+      matchesApproval &&
       (type === "all" || p?.type === type) &&
       projectFavorites.get(p?.id) === true
     )
       favoriteCount++;
     const matchesFavorite =
       !favoritesOnly || projectFavorites.get(p?.id) === true;
-    if (matchesName && matchesFavorite) {
+    if (
+      matchesName &&
+      matchesFavorite &&
+      (type === "all" || p?.type === type) &&
+      needsApproval
+    )
+      approvalCount++;
+    if (matchesName && matchesFavorite && matchesApproval) {
       typeCounts.all++;
       if (["unity", "web", "roblox"].includes(p?.type)) typeCounts[p.type]++;
     }
     card.hidden =
-      !matchesName || !matchesFavorite || (type !== "all" && p?.type !== type);
+      !matchesName ||
+      !matchesFavorite ||
+      !matchesApproval ||
+      (type !== "all" && p?.type !== type);
     card.querySelector(".project-identity strong").innerHTML = parts
       .map((part) =>
         part.match
@@ -762,7 +783,8 @@ function applyProjectNameSearch() {
     node.textContent = typeCounts[node.dataset.projectTypeCount];
   });
   $("#favorites-only-count").textContent = favoriteCount;
-  const filtered = !!query || type !== "all" || favoritesOnly;
+  $("#approval-only-count").textContent = approvalCount;
+  const filtered = !!query || type !== "all" || favoritesOnly || approvalOnly;
   $("#count").textContent = filtered
     ? `${matched} / ${cards.length}개`
     : `${cards.length}개`;
@@ -772,7 +794,10 @@ function applyProjectNameSearch() {
   $("#project-search-empty").hidden = !filtered || matched > 0;
   $("#clear-project-name").disabled = !$("#project-name-query").value.length;
   $("#reset-project-filters").disabled =
-    !$("#project-name-query").value.length && type === "all" && !favoritesOnly;
+    !$("#project-name-query").value.length &&
+    type === "all" &&
+    !favoritesOnly &&
+    !approvalOnly;
   $("#expand-projects").disabled = !matched;
   $("#collapse-projects").disabled = !matched;
 }
@@ -881,6 +906,11 @@ $("#project-sort-direction").onchange = (event) => {
   );
   applyProjectSort();
 };
+$("#approval-only").onclick = () => {
+  const key = "project-list:" + location.pathname;
+  approvalOnlyPreferences.set(key, !approvalOnlyPreferences.get(key));
+  applyProjectNameSearch();
+};
 $("#favorites-only").onclick = () => {
   const key = "project-list:" + location.pathname;
   favoritesOnlyPreferences.set(key, !favoritesOnlyPreferences.get(key));
@@ -913,6 +943,7 @@ $("#reset-project-filters").onclick = () => {
   projectNameQueries.set("project-list:" + location.pathname, "");
   projectTypePreferences.set("project-list:" + location.pathname, "all");
   favoritesOnlyPreferences.set("project-list:" + location.pathname, false);
+  approvalOnlyPreferences.set("project-list:" + location.pathname, false);
   applyProjectNameSearch();
   $("#project-name-query").focus();
 };

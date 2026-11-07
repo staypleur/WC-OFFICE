@@ -2751,7 +2751,8 @@ aside .owner {
   outline-offset: 3px;
 }
 [data-project-type-count],
-#favorites-only-count {
+#favorites-only-count,
+#approval-only-count {
   display: inline-block;
   min-width: 18px;
   margin-left: 7px;

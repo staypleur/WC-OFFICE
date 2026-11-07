@@ -140,7 +140,7 @@
             aria-pressed="true"
             aria-controls="projects"
           >
-            전체
+            전체 <span data-project-type-count="all">0</span>
           </button>
           <button
             type="button"
@@ -148,7 +148,7 @@
             aria-pressed="false"
             aria-controls="projects"
           >
-            Unity
+            Unity <span data-project-type-count="unity">0</span>
           </button>
           <button
             type="button"
@@ -156,7 +156,7 @@
             aria-pressed="false"
             aria-controls="projects"
           >
-            Web
+            Web <span data-project-type-count="web">0</span>
           </button>
           <button
             type="button"
@@ -164,7 +164,15 @@
             aria-pressed="false"
             aria-controls="projects"
           >
-            Roblox
+            Roblox <span data-project-type-count="roblox">0</span>
+          </button>
+          <button
+            type="button"
+            id="reset-project-filters"
+            class="project-filter-reset"
+            title="이름 검색어와 유형 필터 초기화"
+          >
+            전체 초기화
           </button>
         </div>
         <p id="project-search-empty" class="project-search-empty" hidden>

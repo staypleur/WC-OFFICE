@@ -693,13 +693,17 @@ function applyProjectNameSearch() {
       ),
     );
   const cards = [...document.querySelectorAll("#projects .project-accordion")];
+  const typeCounts = { all: 0, unity: 0, web: 0, roblox: 0 };
   let matched = 0;
   for (const card of cards) {
     const p = projects.find((project) => project.id === card.dataset.project);
     const parts = searchParts(p?.name || p?.goal || "", query);
-    card.hidden =
-      (!!query && !parts.some((part) => part.match)) ||
-      (type !== "all" && p?.type !== type);
+    const matchesName = !query || parts.some((part) => part.match);
+    if (matchesName) {
+      typeCounts.all++;
+      if (["unity", "web", "roblox"].includes(p?.type)) typeCounts[p.type]++;
+    }
+    card.hidden = !matchesName || (type !== "all" && p?.type !== type);
     card.querySelector(".project-identity strong").innerHTML = parts
       .map((part) =>
         part.match
@@ -711,6 +715,9 @@ function applyProjectNameSearch() {
       .join("");
     if (!card.hidden) matched++;
   }
+  document.querySelectorAll("[data-project-type-count]").forEach((node) => {
+    node.textContent = typeCounts[node.dataset.projectTypeCount];
+  });
   const filtered = !!query || type !== "all";
   $("#count").textContent = filtered
     ? `${matched} / ${cards.length}개`
@@ -720,6 +727,8 @@ function applyProjectNameSearch() {
     : "";
   $("#project-search-empty").hidden = !filtered || matched > 0;
   $("#clear-project-name").disabled = !$("#project-name-query").value.length;
+  $("#reset-project-filters").disabled =
+    !$("#project-name-query").value.length && type === "all";
   $("#expand-projects").disabled = !matched;
   $("#collapse-projects").disabled = !matched;
 }
@@ -742,6 +751,13 @@ $("#project-name-query").addEventListener("input", (event) => {
 $("#clear-project-name").onclick = () => {
   $("#project-name-query").value = "";
   projectNameQueries.set("project-list:" + location.pathname, "");
+  applyProjectNameSearch();
+  $("#project-name-query").focus();
+};
+$("#reset-project-filters").onclick = () => {
+  $("#project-name-query").value = "";
+  projectNameQueries.set("project-list:" + location.pathname, "");
+  projectTypePreferences.set("project-list:" + location.pathname, "all");
   applyProjectNameSearch();
   $("#project-name-query").focus();
 };

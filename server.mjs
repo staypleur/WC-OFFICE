@@ -3,6 +3,7 @@ import path from "node:path";
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { roles, runProvider } from "./providers.mjs";
+import { createRepositorySync, SYNC_INTERVAL } from "./repository-sync.mjs";
 import {
   settingsFields,
   api,
@@ -320,6 +321,7 @@ const server = http.createServer(async (req, res) => {
         "/projects",
         "/projects/active",
         "/projects/held",
+        "/projects/deleted",
         "/team",
         "/settings",
         "/marketing",
@@ -730,3 +732,14 @@ const server = http.createServer(async (req, res) => {
 server.listen(4310, "127.0.0.1", () =>
   console.log("WC Office http://127.0.0.1:4310"),
 );
+const repositorySync = createRepositorySync({
+  projects,
+  save,
+  isActive: (id) => active.has(id),
+});
+const checkRepositories = () =>
+  repositorySync
+    .poll()
+    .catch(() => console.error("저장소 자동 갱신 저장 실패"));
+setTimeout(checkRepositories, 2500).unref();
+setInterval(checkRepositories, SYNC_INTERVAL).unref();

@@ -68,6 +68,7 @@
           <a href="/new">새 프로젝트</a>
           <a href="/projects/active">진행 프로젝트</a>
           <a href="/projects/held">보류 프로젝트</a>
+          <a href="/projects/deleted">삭제 프로젝트</a>
         </nav>
       </section>
       <section id="marketing-page">
@@ -82,13 +83,13 @@
         <span class="muted" id="count">0개 프로젝트</span>
       </div>
       <div id="projects"></div>
-      <details id="deleted-projects">
-        <summary>삭제한 프로젝트</summary>
+      <section id="deleted-projects">
+        <h2>삭제 프로젝트</h2>
         <p class="notice">
           목록에서만 삭제됩니다. GitHub 저장소와 실제 폴더는 유지됩니다.
         </p>
         <div id="deleted-project-list"></div>
-      </details>
+      </section>
       <form class="composer" id="form">
         <h2>새 프로젝트</h2>
         <div class="form-grid">

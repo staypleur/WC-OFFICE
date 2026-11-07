@@ -1881,3 +1881,19 @@ aside .owner {
     gap: 18px;
   }
 }
+.repository-sync {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 22px;
+  font-size: 12px;
+  color: #8dd2ff;
+}
+.repository-sync small {
+  color: #7d95ad;
+  font-size: 10px;
+}
+.repository-sync p {
+  color: #e9b0b8;
+  margin: 4px 0;
+}

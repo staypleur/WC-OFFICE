@@ -23,7 +23,7 @@ export const roles = [
   },
 ];
 
-export function codex(prompt, timeout = 300000) {
+export function codex(prompt, timeout = 300000, options = {}) {
   return new Promise((resolve, reject) => {
     const env = Object.fromEntries(
       Object.entries(process.env).filter(
@@ -42,7 +42,7 @@ export function codex(prompt, timeout = 300000) {
         "--json",
         "-",
       ],
-      { windowsHide: true, shell: false, env },
+      { windowsHide: true, shell: false, env, cwd: options.cwd },
     );
     let output = "";
     let exceeded = false;

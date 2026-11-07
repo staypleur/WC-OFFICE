@@ -10,13 +10,21 @@ function setPageVisibility(id) {
   const groups = [
     [".hero", ["/"]],
     [
-      "#project-list,#projects,#deleted-projects",
+      "#project-list,#projects",
       ["/", "/projects", "/projects/active", "/projects/held"],
     ],
     [
       "#project-hub",
-      ["/projects", "/new", "/projects/active", "/projects/held", "room"],
+      [
+        "/projects",
+        "/new",
+        "/projects/active",
+        "/projects/held",
+        "/projects/deleted",
+        "room",
+      ],
     ],
+    ["#deleted-projects", ["/projects/deleted"]],
     ["#marketing-page", ["/marketing"]],
     ["#form", ["/new"]],
     ["#ai-team", ["/team", "/settings"]],
@@ -32,9 +40,14 @@ function setPageVisibility(id) {
   document.querySelectorAll("aside nav a").forEach((link) => {
     const active =
       new URL(link.href).pathname ===
-      (["room", "/", "/new", "/projects/active", "/projects/held"].includes(
-        page,
-      )
+      ([
+        "room",
+        "/",
+        "/new",
+        "/projects/active",
+        "/projects/held",
+        "/projects/deleted",
+      ].includes(page)
         ? "/projects"
         : page === "/settings"
           ? "/team"
@@ -51,7 +64,9 @@ function setPageVisibility(id) {
         ? "/new"
         : page === "/projects/held"
           ? "/projects/held"
-          : "/projects/active");
+          : page === "/projects/deleted"
+            ? "/projects/deleted"
+            : "/projects/active");
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
@@ -666,7 +681,26 @@ function renderChat(project) {
 
 function repositoryReportHtml(p) {
   const r = p.repositoryReport;
-  if (!r) return "";
+  const sync = p.repositorySync || {};
+  const labels = {
+    checking: "GitHub 변경 확인 중",
+    updating: "새 커밋 분석 중",
+    current: "최신 커밋 확인됨",
+    error: "갱신 실패 · 기존 요약 유지",
+  };
+  const syncHtml = p.repository
+    ? '<div class="repository-sync"><span>' +
+      escape(labels[sync.state] || "자동 확인 대기") +
+      "</span><small>서버 실행 중 약 5분마다 확인" +
+      (sync.checkedAt
+        ? " · 마지막 확인 " +
+          escape(new Date(sync.checkedAt).toLocaleString("ko-KR"))
+        : "") +
+      "</small>" +
+      (sync.error ? '<p role="status">' + escape(sync.error) + "</p>" : "") +
+      "</div>"
+    : "";
+  if (!r) return syncHtml;
   const list = (title, items) =>
     "<div><small>" +
     title +
@@ -674,6 +708,7 @@ function repositoryReportHtml(p) {
     items.map((x) => "<li>" + escape(x) + "</li>").join("") +
     "</ul></div>";
   return (
+    syncHtml +
     '<section class="repository-report"><h3>GitHub 코드 분석</h3><p>' +
     escape(r.summary) +
     '</p><div class="repository-columns">' +
@@ -692,7 +727,13 @@ function repositoryReportHtml(p) {
     '</p><p class="notice">' +
     escape(r.githubStatus || "") +
     "</p><details><summary>근거 파일 · 코드 위치</summary><pre>" +
-    escape((r.evidence || []).join("\n") + "\n로컬 코드: " + r.localPath) +
+    escape(
+      (r.evidence || []).join("\n") +
+        "\n" +
+        (r.automatic ? "분석용 코드 발췌: " : "로컬 코드: ") +
+        r.localPath +
+        (r.sourceScope ? "\n" + r.sourceScope : ""),
+    ) +
     "</pre></details></section>"
   );
 }

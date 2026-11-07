@@ -2786,9 +2786,24 @@ aside .owner {
 }
 .project-type-filters #undo-read-updates,
 .project-type-filters #undo-favorite-order {
+  font-variant-numeric: tabular-nums;
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
   color: #b8eaff;
   border-color: #56b6df;
   background: #163c56;
+}
+.project-type-filters .undo-expiring {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-type-filters #undo-read-updates,
+  .project-type-filters #undo-favorite-order {
+    transition: none;
+  }
 }
 .project-type-filters #read-visible-updates:disabled,
 .project-type-filters #reset-favorite-order:disabled,

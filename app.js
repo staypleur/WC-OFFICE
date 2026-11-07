@@ -888,8 +888,43 @@ function applyProjectSort() {
     for (const project of sorted) container.append(byId.get(project.id));
   }
 }
+function startUndoCountdown(button, label, expiresAt, onExpire) {
+  let timer;
+  let lastSeconds;
+  button.hidden = false;
+  button.disabled = false;
+  button.classList.remove("undo-expiring");
+  const tick = () => {
+    const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    if (seconds !== lastSeconds) {
+      button.textContent = `${label} · ${seconds}초`;
+      lastSeconds = seconds;
+    }
+    if (seconds > 0) {
+      timer = setTimeout(tick, Math.min(250, expiresAt - Date.now()));
+      return;
+    }
+    button.disabled = true;
+    onExpire();
+    button.classList.add("undo-expiring");
+    timer = setTimeout(
+      () => {
+        button.hidden = true;
+      },
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220,
+    );
+  };
+  tick();
+  return () => {
+    clearTimeout(timer);
+    button.hidden = true;
+    button.disabled = false;
+    button.classList.remove("undo-expiring");
+  };
+}
 function clearUpdateReadUndo() {
-  clearTimeout(updateReadUndoTimer);
+  updateReadUndoTimer?.();
+  updateReadUndoTimer = null;
   updateReadUndo = null;
   $("#undo-read-updates").hidden = true;
   $("#read-updates-status").textContent = "";
@@ -907,9 +942,16 @@ $("#read-visible-updates").onclick = () => {
   if (!snapshot.length) return;
   clearUpdateReadUndo();
   updateReadUndo = { snapshot, expiresAt: Date.now() + 10000 };
-  $("#undo-read-updates").hidden = false;
   $("#read-updates-status").textContent = `${snapshot.length}개 확인 완료`;
-  updateReadUndoTimer = setTimeout(clearUpdateReadUndo, 10000);
+  updateReadUndoTimer = startUndoCountdown(
+    $("#undo-read-updates"),
+    "↶ 확인 실행 취소",
+    updateReadUndo.expiresAt,
+    () => {
+      updateReadUndo = null;
+      $("#read-updates-status").textContent = "";
+    },
+  );
   applyProjectNameSearch();
   $("#undo-read-updates").focus({ preventScroll: true });
 };
@@ -926,7 +968,8 @@ $("#undo-read-updates").onclick = () => {
   $("#updates-only").focus({ preventScroll: true });
 };
 function clearFavoriteOrderUndo() {
-  clearTimeout(favoriteOrderUndoTimer);
+  favoriteOrderUndoTimer?.();
+  favoriteOrderUndoTimer = null;
   favoriteOrderUndo = null;
   $("#undo-favorite-order").hidden = true;
 }
@@ -959,8 +1002,14 @@ $("#reset-favorite-order").onclick = () => {
     expiresAt: Date.now() + 10000,
   };
   favoriteOrders.set(key, []);
-  $("#undo-favorite-order").hidden = false;
-  favoriteOrderUndoTimer = setTimeout(clearFavoriteOrderUndo, 10000);
+  favoriteOrderUndoTimer = startUndoCountdown(
+    $("#undo-favorite-order"),
+    "↶ 실행 취소",
+    favoriteOrderUndo.expiresAt,
+    () => {
+      favoriteOrderUndo = null;
+    },
+  );
   applyProjectSort();
   $("#project-view-status").textContent =
     "즐겨찾기 순서를 초기화했습니다. 10초 동안 실행 취소할 수 있습니다.";

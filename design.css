@@ -2786,6 +2786,9 @@ aside .owner {
 }
 .project-type-filters #undo-read-updates,
 .project-type-filters #undo-favorite-order {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: 14px;
   font-variant-numeric: tabular-nums;
   transition:
     opacity 220ms ease,
@@ -2796,6 +2799,25 @@ aside .owner {
   color: #b8eaff;
   border-color: #56b6df;
   background: #163c56;
+}
+.project-type-filters .undo-timed::before,
+.project-type-filters .undo-timed::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 3px;
+  pointer-events: none;
+  background: currentColor;
+}
+.project-type-filters .undo-timed::before {
+  opacity: 0.18;
+}
+.project-type-filters .undo-timed::after {
+  transform-origin: left;
+  transform: scaleX(var(--undo-remaining, 1));
 }
 .project-type-filters #undo-read-updates.undo-paused,
 .project-type-filters #undo-favorite-order.undo-paused {

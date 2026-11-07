@@ -889,6 +889,7 @@ function applyProjectSort() {
   }
 }
 function startUndoCountdown(button, label, expiresAt, onExpire) {
+  const duration = Math.max(1, expiresAt - Date.now());
   let timer;
   let lastLabel;
   let pausedRemaining = null;
@@ -897,9 +898,15 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
     pausedRemaining ?? Math.max(0, expiresAt - Date.now());
   button.hidden = false;
   button.disabled = false;
+  button.classList.add("undo-timed");
   button.classList.remove("undo-expiring", "undo-paused");
   const tick = () => {
-    const seconds = Math.ceil(remaining() / 1000);
+    const left = remaining();
+    const seconds = Math.ceil(left / 1000);
+    button.style.setProperty(
+      "--undo-remaining",
+      String(Math.max(0, Math.min(1, left / duration))),
+    );
     const nextLabel = `${label} · ${pausedRemaining !== null ? "일시정지 · " : ""}${seconds}초`;
     if (nextLabel !== lastLabel) {
       button.textContent = nextLabel;
@@ -907,7 +914,7 @@ function startUndoCountdown(button, label, expiresAt, onExpire) {
     }
     if (seconds > 0) {
       if (pausedRemaining === null)
-        timer = setTimeout(tick, Math.min(250, remaining()));
+        timer = setTimeout(tick, Math.min(50, remaining()));
       return;
     }
     button.disabled = true;

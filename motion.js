@@ -63,14 +63,3 @@ function updateTypeButtons() {
 }
 typeSelect.addEventListener("change", updateTypeButtons);
 updateTypeButtons();
-document
-  .querySelectorAll('a[href="/#settings"],a[href="/#ai-team"]')
-  .forEach((link) =>
-    link.addEventListener(
-      "click",
-      () => (document.querySelector(new URL(link.href).hash).open = true),
-    ),
-  );
-if (["#settings", "#ai-team"].includes(location.hash)) {
-  document.querySelector(location.hash).open = true;
-}

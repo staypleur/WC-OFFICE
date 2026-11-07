@@ -1,6 +1,103 @@
 import { projectSummary } from "/project-summary.mjs";
 const $ = (selector) => document.querySelector(selector);
 let reportId = null;
+let chatId = null;
+let chatStream = null;
+let lastChatView = "";
+
+function setPageVisibility(id) {
+  const page = id ? "room" : location.pathname;
+  const groups = [
+    [".hero", ["/"]],
+    ["#project-list,#projects,#project-report", ["/", "/projects"]],
+    [".section-index,#form", ["/new"]],
+    ["#ai-team", ["/team"]],
+    ["#settings", ["/settings"]],
+    [".room-toolbar,#workspace", ["room"]],
+  ];
+  groups.forEach(([selector, pages]) =>
+    document
+      .querySelectorAll(selector)
+      .forEach((node) =>
+        node.classList.toggle("route-hidden", !pages.includes(page)),
+      ),
+  );
+  if (page === "/team") $("#ai-team").open = true;
+  if (page === "/settings") $("#settings").open = true;
+  document.querySelectorAll("aside nav a").forEach((link) => {
+    const active =
+      new URL(link.href).pathname ===
+      (page === "room" || page === "/" ? "/projects" : page);
+    link.classList.toggle("nav", active);
+    link.classList.toggle("side-link", !active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function connectChat(id) {
+  chatStream?.close();
+  chatStream = null;
+  if (chatId !== id) $("#chat-input").value = "";
+  chatId = id;
+  lastChatView = "";
+  $("#chat-project").value = id || "";
+  $("#chat-input").disabled = !id;
+  $("#chat-form button").disabled = !id;
+  $("#chat-error").textContent = "";
+  if (!id) {
+    $("#team-feed").innerHTML =
+      '<div class="empty">새 프로젝트를 만들면 AI 대화를 시작할 수 있습니다.</div>';
+    $("#current-work").textContent = "";
+    $("#chat-connection").textContent = "프로젝트 없음";
+    return;
+  }
+  const p = projects.find((p) => p.id === id);
+  if (p) renderChat(p);
+  $("#chat-connection").textContent = "연결 중…";
+  chatStream = new EventSource(
+    "/api/projects/" + encodeURIComponent(id) + "/events",
+  );
+  chatStream.addEventListener("project", (event) => {
+    if (chatId !== id) return;
+    const p = JSON.parse(event.data);
+    $("#chat-connection").textContent = "실시간 연결";
+    renderChat(p);
+  });
+  chatStream.onerror = () =>
+    ($("#chat-connection").textContent = "연결 복구 중…");
+}
+$("#chat-toggle").onclick = async () => {
+  $("#chat-sidebar").showModal();
+  $("#chat-toggle").setAttribute("aria-expanded", "true");
+  try {
+    await refresh();
+    if (!$("#chat-sidebar").open) return;
+    $("#chat-project").innerHTML = projects
+      .map(
+        (p) =>
+          `<option value="${escape(p.id)}">${escape(p.name || p.goal)}</option>`,
+      )
+      .join("");
+    connectChat(
+      selected ||
+        reportId ||
+        projects.find((p) => p.id === chatId)?.id ||
+        projects[0]?.id ||
+        null,
+    );
+  } catch (e) {
+    $("#chat-error").textContent = e.message;
+  }
+};
+$("#chat-close").onclick = () => $("#chat-sidebar").close();
+$("#chat-sidebar").addEventListener("close", () => {
+  chatStream?.close();
+  chatStream = null;
+  $("#chat-toggle").setAttribute("aria-expanded", "false");
+  $("#chat-toggle").focus();
+});
+$("#chat-project").onchange = (event) => connectChat(event.target.value);
 const escape = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -19,6 +116,7 @@ function routeProject(id, push = true) {
   editingProject = null;
   if (push) history.pushState({}, "", id ? "/projects/" + id : "/");
   document.body.classList.toggle("project-mode", !!id);
+  setPageVisibility(id);
   eventStream?.close();
   eventStream = null;
   if (id) {
@@ -48,9 +146,13 @@ window.addEventListener("popstate", () =>
     false,
   ),
 );
-window.addEventListener("pagehide", () => eventStream?.close());
+window.addEventListener("pagehide", () => {
+  eventStream?.close();
+  chatStream?.close();
+});
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) routeProject(selected, false);
+  if (event.persisted && $("#chat-sidebar").open) connectChat(chatId);
 });
 let lastView = "";
 let editingProject = null;
@@ -124,64 +226,13 @@ function renderProject(project) {
     project.phase,
   ]);
   if (view !== lastView) {
-    const messages = $("#messages");
-    const followChat =
-      messages.scrollHeight - messages.scrollTop - messages.clientHeight < 90;
-    $("#messages").innerHTML =
-      (project.messages || [])
-        .map(
-          (m) =>
-            `<div class="message"><strong>${escape(m.role)}</strong><pre>${escape(m.text)}</pre></div>`,
-        )
-        .join("") ||
-      '<div class="empty">목표를 구체화하거나 바로 제작을 시작하세요.</div>';
-    if (followChat) messages.scrollTop = messages.scrollHeight;
     $("#task-history").innerHTML = project.tasks
       .map(
         (t) =>
           `<details><summary>${escape(t.agent)} · ${escape(t.title)} · ${escape(t.status)}</summary><pre>${escape(t.output || "실행 중")}</pre></details>`,
       )
       .join("");
-    const feed = $("#team-feed");
-    const follow = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
-    feed.innerHTML =
-      (project.activity || [])
-        .map(
-          (item) =>
-            '<article class="team-event ' +
-            (item.from === "우찬" ? "mine " : "") +
-            escape(item.kind) +
-            '"><div class="event-route"><strong>' +
-            escape(item.from) +
-            (item.to ? " <span>→</span> " + escape(item.to) : "") +
-            "</strong><time>" +
-            escape(
-              new Date(item.at).toLocaleTimeString("ko-KR", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              }),
-            ) +
-            "</time></div><p>" +
-            escape(item.text) +
-            "</p>" +
-            (item.detail
-              ? '<div class="chat-body"><pre>' +
-                escape(item.detail) +
-                "</pre></div>"
-              : "") +
-            "</article>",
-        )
-        .join("") ||
-      '<div class="empty">팀 채팅방입니다. 목표와 첫 지시를 남겨주세요.</div>';
-    if (follow) feed.scrollTop = feed.scrollHeight;
-    $("#current-work").textContent = project.phase
-      ? project.phase.agent + " · " + project.phase.title
-      : "현재 진행 중인 작업 없음";
-    $("#current-work").classList.toggle(
-      "working",
-      project.status === "작업 중",
-    );
+    renderChat(project);
     lastView = view;
   }
   const busy = project.status === "작업 중";
@@ -282,17 +333,18 @@ $("#projects").onclick = async (event) => {
 $("#chat-form").onsubmit = async (event) => {
   event.preventDefault();
   error("");
+  $("#chat-error").textContent = "";
   const sendButton = $("#chat-form button");
   sendButton.disabled = true;
   try {
     await request("/api/chat", {
-      id: selected,
+      id: chatId,
       message: $("#chat-input").value,
     });
     $("#chat-input").value = "";
     await refresh();
   } catch (e) {
-    error(e.message);
+    $("#chat-error").textContent = e.message;
   } finally {
     sendButton.disabled = false;
   }
@@ -369,3 +421,64 @@ routeProject(selected, false);
 setInterval(() => {
   if (!selected) refresh().catch((e) => error(e.message));
 }, 10000);
+
+function renderChat(project) {
+  if (project.id !== chatId) return;
+  const view = JSON.stringify([
+    project.messages,
+    project.activity,
+    project.phase,
+    project.status,
+  ]);
+  if (view === lastChatView) return;
+  lastChatView = view;
+  const messages = $("#messages");
+  const followChat =
+    messages.scrollHeight - messages.scrollTop - messages.clientHeight < 90;
+  $("#messages").innerHTML =
+    (project.messages || [])
+      .map(
+        (m) =>
+          `<div class="message"><strong>${escape(m.role)}</strong><pre>${escape(m.text)}</pre></div>`,
+      )
+      .join("") ||
+    '<div class="empty">목표를 구체화하거나 바로 제작을 시작하세요.</div>';
+  if (followChat) messages.scrollTop = messages.scrollHeight;
+  const feed = $("#team-feed");
+  const follow = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
+  feed.innerHTML =
+    (project.activity || [])
+      .map(
+        (item) =>
+          '<article class="team-event ' +
+          (item.from === "우찬" ? "mine " : "") +
+          escape(item.kind) +
+          '"><div class="event-route"><strong>' +
+          escape(item.from) +
+          (item.to ? " <span>→</span> " + escape(item.to) : "") +
+          "</strong><time>" +
+          escape(
+            new Date(item.at).toLocaleTimeString("ko-KR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }),
+          ) +
+          "</time></div><p>" +
+          escape(item.text) +
+          "</p>" +
+          (item.detail
+            ? '<div class="chat-body"><pre>' +
+              escape(item.detail) +
+              "</pre></div>"
+            : "") +
+          "</article>",
+      )
+      .join("") ||
+    '<div class="empty">팀 채팅방입니다. 목표와 첫 지시를 남겨주세요.</div>';
+  if (follow) feed.scrollTop = feed.scrollHeight;
+  $("#current-work").textContent = project.phase
+    ? project.phase.agent + " · " + project.phase.title
+    : "현재 진행 중인 작업 없음";
+  $("#current-work").classList.toggle("working", project.status === "작업 중");
+}

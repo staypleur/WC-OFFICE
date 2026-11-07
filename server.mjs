@@ -300,7 +300,9 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
-    const projectPage = /^\/projects\/[a-f0-9-]+$/.test(req.url);
+    const projectPage =
+      /^\/projects\/[a-f0-9-]+$/.test(req.url) ||
+      ["/new", "/projects", "/team", "/settings"].includes(req.url);
     if (
       req.method === "GET" &&
       (projectPage ||

@@ -2935,7 +2935,7 @@ body {
 .night-backdrop {
   container-type: size;
   position: fixed;
-  inset: -4%;
+  inset: 64px -4% -4%;
   z-index: -1;
   pointer-events: none;
   overflow: hidden;
@@ -3020,21 +3020,6 @@ body {
   opacity: 0;
   pointer-events: none;
   transform: rotate(-27deg);
-  animation: quiet-shooting-star 38s linear 9s infinite;
-}
-@keyframes quiet-shooting-star {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) rotate(-27deg);
-  }
-  0.7% {
-    opacity: 0.5;
-  }
-  3.8%,
-  100% {
-    opacity: 0;
-    transform: translate3d(-240px, 120px, 0) rotate(-27deg);
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .night-shooting-star {

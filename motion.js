@@ -144,13 +144,46 @@ rotatingAIs.sort((a, b) => {
       : initialIds.length + Object.keys(aiRoles).indexOf(id);
   return rank(a.id) - rank(b.id);
 });
+
 let rotationIndex = 0;
 let rotationTimer;
-function scheduleAIRotation() {
+let rotationRevision = 0;
+const rotationAnimations = new Set();
+function stopAIRotation() {
   clearTimeout(rotationTimer);
+  rotationRevision++;
+  rotationAnimations.forEach((animation) => animation.cancel());
+  rotationAnimations.clear();
+}
+async function fadeAIContents(from, to, duration) {
+  const animations = floatingCards.flatMap((card) =>
+    [...card.children].map((content) => {
+      const animation = content.animate([{ opacity: from }, { opacity: to }], {
+        duration,
+        easing: "ease-in-out",
+        fill: "forwards",
+      });
+      rotationAnimations.add(animation);
+      return animation;
+    }),
+  );
+  await Promise.allSettled(animations.map((animation) => animation.finished));
+}
+function scheduleAIRotation(delay = 8000) {
+  stopAIRotation();
   if (location.pathname !== "/" || document.hidden) return;
-  rotationTimer = setTimeout(() => {
+  const revision = rotationRevision;
+  rotationTimer = setTimeout(async () => {
+    const started = Date.now();
     if (!floatingCards.some((card) => card.matches(":hover, :focus-within"))) {
+      if (!reducedMotion.matches) await fadeAIContents(1, 0, 320);
+      if (revision !== rotationRevision) return;
+      // Keep the old destination if focus arrives during fade-out.
+      if (floatingCards.some((card) => card.matches(":hover, :focus-within"))) {
+        if (!reducedMotion.matches) await fadeAIContents(0, 1, 240);
+        if (revision === rotationRevision) scheduleAIRotation();
+        return;
+      }
       rotationIndex =
         (rotationIndex + floatingCards.length) % rotatingAIs.length;
       floatingCards.forEach((card, index) => {
@@ -161,17 +194,15 @@ function scheduleAIRotation() {
         card.querySelector("b").textContent = ai.name;
         card.querySelector("small").textContent =
           aiRoles[ai.id] || "AI WORKSPACE";
-        if (!reducedMotion.matches)
-          card.animate([{ opacity: 0.25 }, { opacity: 1 }], {
-            duration: 420,
-            easing: "ease-out",
-          });
       });
+      if (!reducedMotion.matches) await fadeAIContents(0, 1, 480);
     }
-    scheduleAIRotation();
-  }, 8000);
+    if (revision === rotationRevision)
+      scheduleAIRotation(Math.max(0, 8000 - (Date.now() - started)));
+  }, delay);
 }
-document.addEventListener("visibilitychange", scheduleAIRotation);
-window.addEventListener("pagehide", () => clearTimeout(rotationTimer));
-window.addEventListener("pageshow", scheduleAIRotation);
+document.addEventListener("visibilitychange", () => scheduleAIRotation());
+window.addEventListener("pagehide", stopAIRotation);
+window.addEventListener("pageshow", () => scheduleAIRotation());
+reducedMotion.addEventListener("change", () => scheduleAIRotation());
 scheduleAIRotation();

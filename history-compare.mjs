@@ -5,6 +5,8 @@ export function historyKey(entry) {
 export function createComparisonPreference(storage, field) {
   const memory = new Map();
   const normalize = (value) => {
+    if (field === "projectSortDirection")
+      return ["asc", "desc"].includes(value) ? value : undefined;
     if (field === "projectSort")
       return ["recent", "name"].includes(value) ? value : undefined;
     if (field === "projectType")
@@ -81,7 +83,11 @@ export function restoreHistorySelection(entries, saved) {
   return { from: keys[0], to: keys.at(-1) };
 }
 
-export function sortProjects(projects, order = "recent") {
+export function sortProjects(
+  projects,
+  order = "recent",
+  direction = order === "name" ? "asc" : "desc",
+) {
   const timestamp = (project) =>
     [
       project.updatedAt,
@@ -103,10 +109,12 @@ export function sortProjects(projects, order = "recent") {
   const byName = (a, b) =>
     collator.compare(a.name || a.goal || "", b.name || b.goal || "") ||
     String(a.id).localeCompare(String(b.id));
-  return [...projects].sort((a, b) =>
-    order === "name"
-      ? byName(a, b)
-      : timestamp(b) - timestamp(a) || byName(a, b),
+  const multiplier = direction === "asc" ? 1 : -1;
+  return [...projects].sort(
+    (a, b) =>
+      multiplier *
+        (order === "name" ? byName(a, b) : timestamp(a) - timestamp(b)) ||
+      byName(a, b),
   );
 }
 

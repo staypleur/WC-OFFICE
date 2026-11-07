@@ -40,11 +40,42 @@ test("project sorting uses real activity or report updates, not unchanged checks
     projects.map((p) => p.id),
     ["a", "b", "c"],
   );
+  assert.deepEqual(
+    sortProjects(projects, "recent", "asc").map((p) => p.id),
+    ["a", "b", "c"],
+  );
+  assert.deepEqual(
+    sortProjects(projects, "recent", "desc").map((p) => p.id),
+    ["c", "b", "a"],
+  );
+  assert.deepEqual(
+    sortProjects(projects, "name", "desc").map((p) => p.id),
+    ["a", "b", "c"],
+  );
+  assert.deepEqual(
+    sortProjects(projects, "name", "asc").map((p) => p.id),
+    ["c", "b", "a"],
+  );
   const data = new Map();
   const storage = {
     getItem: (k) => data.get(k),
     setItem: (k, v) => data.set(k, v),
   };
+  const directions = createComparisonPreference(
+    storage,
+    "projectSortDirection",
+  );
+  directions.set("active", "desc");
+  directions.set("held", "asc");
+  directions.set("active", "invalid");
+  assert.equal(
+    createComparisonPreference(storage, "projectSortDirection").get("active"),
+    "desc",
+  );
+  assert.equal(
+    createComparisonPreference(storage, "projectSortDirection").get("held"),
+    "asc",
+  );
   createComparisonPreference(storage, "projectSort").set("active", "name");
   assert.equal(
     createComparisonPreference(storage, "projectSort").get("active"),

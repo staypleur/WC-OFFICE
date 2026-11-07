@@ -80,18 +80,25 @@
       </section>
       <div id="project-list" class="section-head project-heading">
         <h2>진행 프로젝트</h2>
-        <span class="muted" id="count">0개 프로젝트</span>
+        <span class="visually-hidden" id="count">0개 프로젝트</span>
         <label class="project-sort-control"
-          ><span>정렬</span
+          ><span class="visually-hidden">정렬</span
           ><select
             id="project-sort"
             aria-controls="projects"
             title="최근 업데이트순: 진행 요약 갱신과 프로젝트 활동 기준"
           >
-            <option value="recent">최근 업데이트순</option>
+            <option value="recent">업데이트순</option>
             <option value="name">이름순</option>
           </select></label
         >
+        <label class="project-sort-control"
+          ><span class="visually-hidden">방향</span>
+          <select id="project-sort-direction" aria-controls="projects">
+            <option value="desc">내림차순 ↓</option>
+            <option value="asc">오름차순 ↑</option>
+          </select>
+        </label>
         <div
           class="project-view-controls"
           role="group"
@@ -124,7 +131,7 @@
         </div>
         <div class="project-name-search">
           <label
-            ><span>프로젝트 이름 검색</span
+            ><span class="visually-hidden">프로젝트 이름 검색</span
             ><input
               id="project-name-query"
               type="search"
@@ -135,6 +142,7 @@
           <button type="button" id="clear-project-name">검색 지우기</button>
           <span
             id="project-search-status"
+            class="visually-hidden"
             role="status"
             aria-live="polite"
           ></span>

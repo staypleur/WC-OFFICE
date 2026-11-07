@@ -37,6 +37,10 @@ const projectSortPreferences = createComparisonPreference(
   comparisonStorage,
   "projectSort",
 );
+const projectSortDirections = createComparisonPreference(
+  comparisonStorage,
+  "projectSortDirection",
+);
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -742,12 +746,17 @@ function applyProjectSort() {
   const order =
     projectSortPreferences.get("project-list:" + location.pathname) || "recent";
   $("#project-sort").value = order;
+  const direction =
+    projectSortDirections.get("project-list:" + location.pathname) ||
+    (order === "name" ? "asc" : "desc");
+  $("#project-sort-direction").value = direction;
   const container = $("#projects");
   const cards = [...container.querySelectorAll(".project-accordion")];
   const byId = new Map(cards.map((card) => [card.dataset.project, card]));
   const sorted = sortProjects(
     projects.filter((project) => byId.has(project.id)),
     order,
+    direction,
   );
   if (
     sorted.some(
@@ -759,6 +768,13 @@ function applyProjectSort() {
 }
 $("#project-sort").onchange = (event) => {
   projectSortPreferences.set(
+    "project-list:" + location.pathname,
+    event.target.value,
+  );
+  applyProjectSort();
+};
+$("#project-sort-direction").onchange = (event) => {
+  projectSortDirections.set(
     "project-list:" + location.pathname,
     event.target.value,
   );

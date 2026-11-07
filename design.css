@@ -10,6 +10,170 @@
   --sky: #83dfff;
   --blue: #367cff;
 }
+.room-toolbar {
+  display: none;
+}
+.project-mode main > :not(#workspace):not(#error):not(.room-toolbar) {
+  display: none !important;
+}
+.project-mode .room-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 25px 0;
+  border-bottom: 1px solid var(--line);
+}
+.room-toolbar a {
+  font-size: 12px;
+  text-decoration: none;
+  color: #b6cee8;
+}
+.room-kicker {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #718aa8;
+}
+#live-state {
+  font-size: 11px;
+  color: #86d8ff;
+}
+.project-mode #workspace {
+  background: transparent;
+  border: 0;
+  padding: 30px 0;
+  box-shadow: none;
+}
+.project-mode #workspace > .section-head h2 {
+  font-size: 28px;
+  margin: 0;
+}
+.room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 26px;
+}
+.room-chat,
+.room-collaboration {
+  min-width: 0;
+  background: #0e1623;
+  border: 1px solid #ffffff14;
+  border-radius: 12px;
+  padding: 22px;
+}
+.room-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  color: #dcecff;
+}
+#messages {
+  max-height: 55vh;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+#team-feed {
+  max-height: 65vh;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.room-chat #chat-form {
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.room-chat textarea {
+  min-height: 80px;
+}
+.team-event {
+  margin: 18px 0;
+  padding: 0 0 18px 14px;
+  border-left: 2px solid #325373;
+  border-bottom: 1px solid #ffffff08;
+}
+.team-event.error {
+  border-left-color: #e47979;
+}
+.team-event.completed {
+  border-left-color: #71c2b9;
+}
+.event-route {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.event-route strong {
+  font-size: 11px;
+  color: #a8dfff;
+}
+.event-route strong span {
+  color: #6687aa;
+  padding: 0 5px;
+}
+.event-route time {
+  font-size: 9px;
+  color: #73869f;
+  white-space: nowrap;
+}
+.team-event p {
+  font-size: 12px;
+  color: #a9bdd6;
+  line-height: 1.8;
+  margin: 10px 0 0;
+}
+.team-event details {
+  margin-top: 8px;
+}
+.team-event pre {
+  max-height: 300px;
+}
+.team-event {
+  animation: rise 0.3s ease-out;
+}
+#current-work {
+  font-size: 11px;
+  color: #8298b3;
+  padding: 17px 0;
+}
+#current-work.working {
+  color: #9ce2ff;
+}
+#current-work.working:before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 9px;
+  border-radius: 50%;
+  background: #80d8ff;
+  animation: work-pulse 1.5s infinite;
+}
+@keyframes work-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (max-width: 850px) {
+  .room-grid {
+    grid-template-columns: 1fr;
+  }
+  .room-kicker {
+    display: none;
+  }
+  .project-mode #workspace > .section-head h2 {
+    font-size: 21px;
+  }
+  .room-chat,
+  .room-collaboration {
+    padding: 18px;
+  }
+  #messages,
+  #team-feed {
+    max-height: 50vh;
+  }
+}
 * {
   box-sizing: border-box;
 }

@@ -42,6 +42,7 @@ Object.assign(process.env, settings);
 const projects = await load("data/projects.json", []);
 const active = new Set();
 const verified = new Set();
+const subscribers = new Map();
 let writes = Promise.resolve();
 function save() {
   const snapshot = JSON.stringify(projects, null, 2);
@@ -50,6 +51,18 @@ function save() {
     .then(async () => {
       await writeFile("data/projects.tmp", snapshot);
       await rename("data/projects.tmp", "data/projects.json");
+      for (const project of JSON.parse(snapshot)) {
+        for (const response of subscribers.get(project.id) || []) {
+          if (response.destroyed) continue;
+          if (response.writableLength > 2 * 1024 * 1024) {
+            response.destroy();
+            continue;
+          }
+          response.write(
+            `event: project\ndata: ${JSON.stringify(project)}\n\n`,
+          );
+        }
+      }
     });
   return writes;
 }
@@ -58,6 +71,7 @@ for (const p of projects) {
   p.messages ||= [];
   p.events ||= [];
   p.tasks ||= [];
+  p.activity ||= [];
   for (const record of [...p.messages, ...p.tasks]) {
     const key = record.role ? "text" : "output";
     if (
@@ -70,6 +84,14 @@ for (const p of projects) {
   if (p.status === "작업 중") {
     p.status = "중단됨";
     for (const t of p.tasks) if (t.status === "진행 중") t.status = "중단됨";
+    p.phase = null;
+    p.activity.push({
+      id: randomUUID(),
+      at: new Date().toISOString(),
+      from: "시스템",
+      kind: "interrupted",
+      text: "서버가 다시 시작되어 작업이 중단됐습니다. 작업 기록을 확인하고 다시 요청해주세요.",
+    });
   }
 }
 await save();
@@ -79,7 +101,7 @@ function requireText(value, max = 4000) {
   return value.trim();
 }
 function context(p) {
-  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n대화:\n${p.messages
+  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n기획 인수인계:\n${p.brief || ""}\n대화:\n${p.messages
     .filter((m) => m.role !== "시스템")
     .slice(-12)
     .map((m) => m.role + ": " + m.text)
@@ -90,6 +112,15 @@ function job(p, title, provider, work) {
   if (active.has(p.id)) throw new Error("현재 작업이 끝난 뒤 요청해주세요.");
   active.add(p.id);
   p.status = "작업 중";
+  p.phase = { agent: provider, title };
+  p.activity ||= [];
+  p.activity.push({
+    id: randomUUID(),
+    at: new Date().toISOString(),
+    from: provider,
+    kind: "started",
+    text: `${title} 시작`,
+  });
   const task = { id: randomUUID(), title, agent: provider, status: "진행 중" };
   p.tasks.push(task);
   const promise = (async () => {
@@ -99,13 +130,29 @@ function job(p, title, provider, work) {
       task.status = "완료";
       p.messages.push({ role: provider, text: task.output });
       p.status = "대화 가능";
+      p.activity.push({
+        id: randomUUID(),
+        at: new Date().toISOString(),
+        from: provider,
+        kind: "completed",
+        text: `${title} 완료`,
+        detail: task.output,
+      });
     } catch (e) {
       task.status = "오류";
       task.output = e.message;
       p.status = "확인 필요";
       p.messages.push({ role: "시스템", text: e.message });
+      p.activity.push({
+        id: randomUUID(),
+        at: new Date().toISOString(),
+        from: "시스템",
+        kind: "error",
+        text: e.message,
+      });
     } finally {
       p.events.push(`${title} · ${task.status}`);
+      p.phase = null;
       if (p.folder)
         try {
           await writeFile(
@@ -116,10 +163,67 @@ function job(p, title, provider, work) {
           p.events.push("프로젝트 폴더 기록 실패. 서버에는 기록이 보관됩니다.");
         }
       active.delete(p.id);
+      p.phase = null;
       await save();
     }
   })();
   promise.catch((error) => console.error("작업 저장 실패", error.message));
+}
+async function teamEvent(p, from, to, text, detail = "") {
+  p.activity.push({
+    id: randomUUID(),
+    at: new Date().toISOString(),
+    from,
+    to,
+    kind: "handoff",
+    text,
+    detail,
+  });
+  await save();
+}
+async function teamBuild(p, work) {
+  const developer = p.developer === "codex" ? "Codex" : "Claude";
+  p.phase = { agent: "Codex", title: "구현 계획 작성" };
+  await teamEvent(
+    p,
+    "시스템",
+    "Codex",
+    "목표와 대화를 전달했습니다. 구현 계획을 작성합니다.",
+  );
+  p.brief = await runProvider(
+    "codex",
+    "총괄 기획자로서 개발 담당에게 전달할 구현 계획을 한국어로 작성하라. 기능 목록, 작업 순서, 파일 구성, 완료 기준을 포함. 도구 실행 금지.\n" +
+      context(p),
+  );
+  p.phase = { agent: developer, title: "코드 작성 · 결과 저장" };
+  await teamEvent(p, "Codex", developer, "구현 계획을 전달했습니다.", p.brief);
+  const result = await work();
+  if (process.env.GEMINI_API_KEY) {
+    p.phase = { agent: "Gemini", title: "결과 검토" };
+    await teamEvent(
+      p,
+      developer,
+      "Gemini",
+      "기획과 작업 결과를 전달해 검토를 요청했습니다.",
+      result,
+    );
+    const review = await runProvider(
+      "gemini",
+      "제공된 기획과 작업 결과를 검토하고 확인된 내용과 미검증 항목을 구분해 한국어로 보고하라. 실행 테스트를 했다고 주장하지 마라.\n" +
+        context(p) +
+        "\n작업 결과:\n" +
+        result.slice(-90000),
+    );
+    await teamEvent(p, "Gemini", "우찬", "검토 보고서를 전달했습니다.", review);
+  } else {
+    await teamEvent(
+      p,
+      "시스템",
+      "우찬",
+      "Gemini API 키가 없어 별도 검토를 건너뛰었습니다. 결과를 직접 확인해주세요.",
+    );
+  }
+  return result;
 }
 async function makeGame(p) {
   if (!p.folder) throw new Error("새 프로젝트에서 작업 폴더를 선택해주세요.");
@@ -135,7 +239,14 @@ async function makeGame(p) {
   await writeUnity(folder, files);
   p.unityFolder = folder;
   p.approved = false;
-  await save();
+  p.phase = { agent: "Unity", title: "컴파일 검증" };
+  await teamEvent(
+    p,
+    p.developer || "claude",
+    "Unity",
+    "생성한 C# 파일을 저장하고 컴파일을 시작합니다.",
+    folder,
+  );
   return `${files.length}개 C# 파일 저장\n${folder}\n${await compileUnity(folder)}`;
 }
 function send(res, status, data) {
@@ -149,21 +260,47 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
       return send(res, 403, { error: "허용되지 않은 주소입니다." });
+    const streamMatch = /^\/api\/projects\/([a-f0-9-]+)\/events$/.exec(req.url);
+    if (req.method === "GET" && streamMatch) {
+      const p = projects.find((project) => project.id === streamMatch[1]);
+      if (!p) return send(res, 404, { error: "프로젝트를 찾지 못했습니다." });
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      res.write(`event: project\ndata: ${JSON.stringify(p)}\n\n`);
+      const clients = subscribers.get(p.id) || new Set();
+      subscribers.set(p.id, clients);
+      clients.add(res);
+      const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
+      res.on("close", () => {
+        clearInterval(heartbeat);
+        clients.delete(res);
+        if (!clients.size) subscribers.delete(p.id);
+      });
+      return;
+    }
+    const projectPage = /^\/projects\/[a-f0-9-]+$/.test(req.url);
     if (
       req.method === "GET" &&
-      ["/", "/app.js", "/motion.js", "/design.css"].includes(req.url)
+      (projectPage ||
+        ["/", "/app.js", "/motion.js", "/design.css"].includes(req.url))
     ) {
       res.writeHead(200, {
         "Content-Type":
           req.url === "/design.css"
             ? "text/css; charset=utf-8"
-            : req.url === "/"
+            : req.url === "/" || projectPage
               ? "text/html; charset=utf-8"
               : "text/javascript; charset=utf-8",
         "Cache-Control": "no-store",
       });
       return res.end(
-        await readFile(req.url === "/" ? "index.html" : req.url.slice(1)),
+        await readFile(
+          req.url === "/" || projectPage ? "index.html" : req.url.slice(1),
+        ),
       );
     }
     if (req.method === "GET" && req.url === "/api/projects")
@@ -273,6 +410,7 @@ const server = http.createServer(async (req, res) => {
         status: "대화 준비",
         tasks: [],
         messages: [],
+        activity: [],
         events: ["프로젝트 생성"],
       };
       await writeFile(
@@ -329,62 +467,66 @@ const server = http.createServer(async (req, res) => {
             ? "Roblox 제작"
             : "Web 제작",
         p.developer === "codex" ? "Codex" : "Claude",
-        async () => {
-          if (p.type === "unity") return makeGame(p);
-          if (!p.folder)
-            throw new Error("폴더를 지정한 새 프로젝트를 만들어주세요.");
-          p.approved = false;
-          if (p.type === "roblox") {
-            const output = await runProvider(
+        () =>
+          teamBuild(p, async () => {
+            if (p.type === "unity") return makeGame(p);
+            if (!p.folder)
+              throw new Error("폴더를 지정한 새 프로젝트를 만들어주세요.");
+            p.approved = false;
+            if (p.type === "roblox") {
+              const output = await runProvider(
+                p.developer || "claude",
+                'Roblox Studio용 게임을 Luau로 작성하라. 외부 에셋 없이 기본 Part를 생성하고 게임 규칙, 승패, 재시작을 구현. ServerScriptService의 Script에 넣을 단일 서버 스크립트와 설치·테스트 지침을 작성. JSON만 출력: {"code":"전체 Luau 코드","instructions":"한국어 설치와 테스트 방법"}. 실행 검증했다고 주장하지 말 것. ' +
+                  context(p),
+              );
+              const result = JSON.parse(
+                output
+                  .trim()
+                  .replace(/^```(?:json)?\s*/, "")
+                  .replace(/\s*```$/, ""),
+              );
+              if (
+                !result ||
+                typeof result.code !== "string" ||
+                !result.code.trim() ||
+                typeof result.instructions !== "string"
+              )
+                throw new Error("Roblox 코드 응답 형식을 확인해주세요.");
+              const folder = path.join(
+                p.folder,
+                "Roblox-" + Date.now() + "-" + randomUUID().slice(0, 6),
+              );
+              await mkdir(folder);
+              await writeFile(
+                path.join(folder, "Game.server.luau"),
+                result.code,
+              );
+              await writeFile(
+                path.join(folder, "설치안내.txt"),
+                result.instructions,
+              );
+              return (
+                "Roblox 코드와 설치 안내 저장 완료\n" +
+                folder +
+                "\nStudio에서 가져온 뒤 플레이 테스트가 필요합니다.\n" +
+                result.instructions
+              );
+            }
+            const html = await runProvider(
               p.developer || "claude",
-              'Roblox Studio용 게임을 Luau로 작성하라. 외부 에셋 없이 기본 Part를 생성하고 게임 규칙, 승패, 재시작을 구현. ServerScriptService의 Script에 넣을 단일 서버 스크립트와 설치·테스트 지침을 작성. JSON만 출력: {"code":"전체 Luau 코드","instructions":"한국어 설치와 테스트 방법"}. 실행 검증했다고 주장하지 말 것. ' +
+              "목표에 맞는 Web 프로젝트의 완전한 단일 HTML 프로토타입을 작성하세요. CSS와 JavaScript를 포함하고 외부 의존성 없이 동작하게 하세요. HTML만 답변하세요. " +
                 context(p),
             );
-            const result = JSON.parse(
-              output
+            const file = path.join(p.folder, "web-" + Date.now() + ".html");
+            await writeFile(
+              file,
+              html
                 .trim()
-                .replace(/^```(?:json)?\s*/, "")
+                .replace(/^```(?:html)?\s*/, "")
                 .replace(/\s*```$/, ""),
             );
-            if (
-              !result ||
-              typeof result.code !== "string" ||
-              !result.code.trim() ||
-              typeof result.instructions !== "string"
-            )
-              throw new Error("Roblox 코드 응답 형식을 확인해주세요.");
-            const folder = path.join(
-              p.folder,
-              "Roblox-" + Date.now() + "-" + randomUUID().slice(0, 6),
-            );
-            await mkdir(folder);
-            await writeFile(path.join(folder, "Game.server.luau"), result.code);
-            await writeFile(
-              path.join(folder, "설치안내.txt"),
-              result.instructions,
-            );
-            return (
-              "Roblox 코드와 설치 안내 저장 완료\n" +
-              folder +
-              "\nStudio에서 가져온 뒤 플레이 테스트가 필요합니다.\n" +
-              result.instructions
-            );
-          }
-          const html = await runProvider(
-            p.developer || "claude",
-            "목표에 맞는 Web 프로젝트의 완전한 단일 HTML 프로토타입을 작성하세요. CSS와 JavaScript를 포함하고 외부 의존성 없이 동작하게 하세요. HTML만 답변하세요. " +
-              context(p),
-          );
-          const file = path.join(p.folder, "web-" + Date.now() + ".html");
-          await writeFile(
-            file,
-            html
-              .trim()
-              .replace(/^```(?:html)?\s*/, "")
-              .replace(/\s*```$/, ""),
-          );
-          return "HTML 저장 완료 " + file + "\n" + html;
-        },
+            return "HTML 저장 완료 " + file + "\n" + html;
+          }),
       );
     } else if (req.url === "/api/unity/open") {
       if (active.has(p.id) || !p.unityFolder)

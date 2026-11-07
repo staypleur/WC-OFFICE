@@ -8,7 +8,48 @@ const escape = (value) =>
       ],
   );
 let projects = [];
-let selected = null;
+let selected =
+  /^\/projects\/([a-f0-9-]+)$/.exec(location.pathname)?.[1] || null;
+let eventStream;
+function routeProject(id, push = true) {
+  selected = id;
+  lastView = "";
+  editingProject = null;
+  if (push) history.pushState({}, "", id ? "/projects/" + id : "/");
+  document.body.classList.toggle("project-mode", !!id);
+  eventStream?.close();
+  eventStream = null;
+  if (id) {
+    $("#live-state").textContent = "연결 중";
+    eventStream = new EventSource(
+      "/api/projects/" + encodeURIComponent(id) + "/events",
+    );
+    eventStream.addEventListener("project", (event) => {
+      if (selected !== id) return;
+      const p = JSON.parse(event.data);
+      const index = projects.findIndex((item) => item.id === p.id);
+      if (index < 0) projects.push(p);
+      else projects[index] = p;
+      $("#live-state").textContent = "실시간 연결";
+      renderProject(p);
+    });
+    eventStream.onerror = () => {
+      $("#live-state").textContent = "연결 복구 중…";
+    };
+  }
+  refresh().catch((e) => error(e.message));
+  window.scrollTo(0, 0);
+}
+window.addEventListener("popstate", () =>
+  routeProject(
+    /^\/projects\/([a-f0-9-]+)$/.exec(location.pathname)?.[1] || null,
+    false,
+  ),
+);
+window.addEventListener("pagehide", () => eventStream?.close());
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) routeProject(selected, false);
+});
 let lastView = "";
 let editingProject = null;
 async function request(url, body) {
@@ -41,7 +82,13 @@ async function refresh() {
       .join("") || '<div class="empty">프로젝트를 만들어 시작하세요.</div>';
   const project = projects.find((p) => p.id === selected);
   $("#workspace").hidden = !project;
-  if (!project) return;
+  if (selected && !project)
+    error("프로젝트를 찾지 못했습니다. 프로젝트 목록으로 돌아가주세요.");
+  if (project) renderProject(project);
+}
+function renderProject(project) {
+  if (project.id !== selected) return;
+  $("#workspace").hidden = false;
   $("#project-name").textContent = project.name || project.goal;
   $("#project-goal").textContent = project.goal;
   $("#project-folder").textContent =
@@ -57,8 +104,13 @@ async function refresh() {
     project.messages,
     project.tasks,
     project.status,
+    project.activity,
+    project.phase,
   ]);
   if (view !== lastView) {
+    const messages = $("#messages");
+    const followChat =
+      messages.scrollHeight - messages.scrollTop - messages.clientHeight < 90;
     $("#messages").innerHTML =
       (project.messages || [])
         .map(
@@ -67,12 +119,52 @@ async function refresh() {
         )
         .join("") ||
       '<div class="empty">목표를 구체화하거나 바로 제작을 시작하세요.</div>';
+    if (followChat) messages.scrollTop = messages.scrollHeight;
     $("#task-history").innerHTML = project.tasks
       .map(
         (t) =>
           `<details><summary>${escape(t.agent)} · ${escape(t.title)} · ${escape(t.status)}</summary><pre>${escape(t.output || "실행 중")}</pre></details>`,
       )
       .join("");
+    const feed = $("#team-feed");
+    const follow = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
+    feed.innerHTML =
+      (project.activity || [])
+        .map(
+          (item) =>
+            '<article class="team-event ' +
+            escape(item.kind) +
+            '"><div class="event-route"><strong>' +
+            escape(item.from) +
+            (item.to ? " <span>→</span> " + escape(item.to) : "") +
+            "</strong><time>" +
+            escape(
+              new Date(item.at).toLocaleTimeString("ko-KR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              }),
+            ) +
+            "</time></div><p>" +
+            escape(item.text) +
+            "</p>" +
+            (item.detail
+              ? "<details><summary>전달 내용 보기</summary><pre>" +
+                escape(item.detail) +
+                "</pre></details>"
+              : "") +
+            "</article>",
+        )
+        .join("") ||
+      '<div class="empty">제작을 시작하면 AI의 작업과 인수인계가 여기에 표시됩니다.</div>';
+    if (follow) feed.scrollTop = feed.scrollHeight;
+    $("#current-work").textContent = project.phase
+      ? project.phase.agent + " · " + project.phase.title
+      : "현재 진행 중인 작업 없음";
+    $("#current-work").classList.toggle(
+      "working",
+      project.status === "작업 중",
+    );
     lastView = view;
   }
   const busy = project.status === "작업 중";
@@ -146,10 +238,7 @@ $("#form").onsubmit = async (event) => {
       developer: $("#developer").value,
       repository: $("#repository").value,
     });
-    selected = p.id;
-    lastView = "";
-    await refresh();
-    $("#workspace").scrollIntoView({ behavior: "smooth" });
+    routeProject(p.id);
   } catch (e) {
     error(e.message);
   } finally {
@@ -170,9 +259,7 @@ $("#choose-folder").onclick = async (event) => {
 $("#projects").onclick = async (event) => {
   const button = event.target.closest("[data-select]");
   if (button) {
-    selected = button.dataset.select;
-    lastView = "";
-    await refresh();
+    routeProject(button.dataset.select);
   }
 };
 $("#chat-form").onsubmit = async (event) => {
@@ -256,5 +343,8 @@ document.querySelectorAll("[data-check]").forEach(
       }
     }),
 );
-Promise.all([refresh(), config()]).catch((e) => error(e.message));
-setInterval(() => refresh().catch((e) => error(e.message)), 5000);
+config().catch((e) => error(e.message));
+routeProject(selected, false);
+setInterval(() => {
+  if (!selected) refresh().catch((e) => error(e.message));
+}, 10000);

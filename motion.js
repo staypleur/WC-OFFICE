@@ -49,11 +49,9 @@ document.querySelectorAll("[data-project-type]").forEach((button) =>
   button.addEventListener("click", () => {
     typeSelect.value = button.dataset.projectType;
     typeSelect.dispatchEvent(new Event("change"));
-    document
-      .querySelector("#form")
-      .scrollIntoView({
-        behavior: reducedMotion.matches ? "instant" : "smooth",
-      });
+    document.querySelector("#form").scrollIntoView({
+      behavior: reducedMotion.matches ? "instant" : "smooth",
+    });
   }),
 );
 function updateTypeButtons() {
@@ -66,10 +64,13 @@ function updateTypeButtons() {
 typeSelect.addEventListener("change", updateTypeButtons);
 updateTypeButtons();
 document
-  .querySelectorAll('a[href="#settings"],a[href="#ai-team"]')
+  .querySelectorAll('a[href="/#settings"],a[href="/#ai-team"]')
   .forEach((link) =>
     link.addEventListener(
       "click",
-      () => (document.querySelector(link.getAttribute("href")).open = true),
+      () => (document.querySelector(new URL(link.href).hash).open = true),
     ),
   );
+if (["#settings", "#ai-team"].includes(location.hash)) {
+  document.querySelector(location.hash).open = true;
+}

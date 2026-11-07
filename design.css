@@ -2768,6 +2768,14 @@ aside .owner {
   color: #a8bfd3;
   background: transparent;
 }
+#undo-favorite-order[hidden] {
+  display: none;
+}
+.project-type-filters #undo-favorite-order {
+  color: #b8eaff;
+  border-color: #56b6df;
+  background: #163c56;
+}
 .project-type-filters #reset-favorite-order:disabled,
 .project-type-filters .project-filter-reset:disabled {
   opacity: 0.4;

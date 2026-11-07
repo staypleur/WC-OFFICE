@@ -51,6 +51,8 @@ const favoriteOrders = createComparisonPreference(
   "favoriteOrder",
 );
 let draggedFavorite = null;
+let favoriteOrderUndo = null;
+let favoriteOrderUndoTimer;
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -294,6 +296,7 @@ let selected =
   /^\/projects\/([a-f0-9-]+)$/.exec(location.pathname)?.[1] || null;
 let eventStream;
 function routeProject(id, push = true) {
+  clearFavoriteOrderUndo();
   saveViewPosition();
   restoringPosition = true;
   const revision = ++positionRevision;
@@ -823,11 +826,45 @@ function applyProjectSort() {
     for (const project of sorted) container.append(byId.get(project.id));
   }
 }
-$("#reset-favorite-order").onclick = () => {
-  favoriteOrders.set("project-list:" + location.pathname, []);
+function clearFavoriteOrderUndo() {
+  clearTimeout(favoriteOrderUndoTimer);
+  favoriteOrderUndo = null;
+  $("#undo-favorite-order").hidden = true;
+}
+$("#undo-favorite-order").onclick = () => {
+  const snapshot = favoriteOrderUndo;
+  if (
+    !snapshot ||
+    snapshot.path !== location.pathname ||
+    Date.now() >= snapshot.expiresAt
+  ) {
+    clearFavoriteOrderUndo();
+    return;
+  }
+  favoriteOrders.set("project-list:" + snapshot.path, snapshot.order);
+  clearFavoriteOrderUndo();
   applyProjectSort();
   $("#project-view-status").textContent =
-    "즐겨찾기 순서를 초기화했습니다. 현재 정렬 기준과 방향을 적용했습니다.";
+    "이전 즐겨찾기 순서로 복원하고 저장했습니다.";
+  $("#reset-favorite-order").focus({ preventScroll: true });
+  saveViewPosition();
+};
+$("#reset-favorite-order").onclick = () => {
+  const key = "project-list:" + location.pathname;
+  const previousOrder = favoriteOrders.get(key) || [];
+  if (!previousOrder.length) return;
+  clearFavoriteOrderUndo();
+  favoriteOrderUndo = {
+    path: location.pathname,
+    order: [...previousOrder],
+    expiresAt: Date.now() + 10000,
+  };
+  favoriteOrders.set(key, []);
+  $("#undo-favorite-order").hidden = false;
+  favoriteOrderUndoTimer = setTimeout(clearFavoriteOrderUndo, 10000);
+  applyProjectSort();
+  $("#project-view-status").textContent =
+    "즐겨찾기 순서를 초기화했습니다. 10초 동안 실행 취소할 수 있습니다.";
   saveViewPosition();
 };
 $("#project-sort").onchange = (event) => {
@@ -907,6 +944,7 @@ function saveFavoriteMove(source, target, after) {
     ...$("#projects").querySelectorAll(".project-accordion.is-favorite"),
   ].map((card) => card.dataset.project);
   if (!ids.includes(source) || !ids.includes(target)) return;
+  clearFavoriteOrderUndo();
   favoriteOrders.set(
     "project-list:" + location.pathname,
     moveFavoriteOrder(ids, source, target, after),

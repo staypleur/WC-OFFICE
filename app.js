@@ -325,7 +325,7 @@ let projects = [];
 let selected =
   /^\/projects\/([a-f0-9-]+)$/.exec(location.pathname)?.[1] || null;
 let eventStream;
-function routeProject(id, push = true) {
+function routeProject(id, push = true, path = null) {
   clearFavoriteOrderUndo();
   clearUpdateReadUndo();
   saveViewPosition();
@@ -335,10 +335,11 @@ function routeProject(id, push = true) {
   selected = id;
   lastView = "";
   editingProject = null;
-  if (push) history.pushState({}, "", id ? "/projects/" + id : "/");
+  if (push) history.pushState({}, "", path || (id ? "/projects/" + id : "/"));
   viewPath = location.pathname;
   document.body.classList.toggle("project-mode", !!id);
   setPageVisibility(id);
+  window.dispatchEvent(new Event("office-route-change"));
   eventStream?.close();
   eventStream = null;
   if (id) {
@@ -359,7 +360,7 @@ function routeProject(id, push = true) {
       $("#live-state").textContent = "연결 복구 중…";
     };
   }
-  refresh()
+  return refresh()
     .then(() => restoreViewPosition(revision))
     .catch((e) => {
       restoringPosition = false;
@@ -370,11 +371,69 @@ function routeProject(id, push = true) {
       error(e.message);
     });
 }
-window.addEventListener("popstate", () =>
-  routeProject(
-    /^\/projects\/([a-f0-9-]+)$/.exec(location.pathname)?.[1] || null,
-    false,
-  ),
+let menuRevision = 0;
+let menuAnimation;
+async function navigateOffice(url, push = true) {
+  const revision = ++menuRevision;
+  const main = document.querySelector("main");
+  menuAnimation?.cancel();
+  const animate = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (animate) {
+    menuAnimation = main.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: 120,
+      fill: "forwards",
+    });
+    await menuAnimation.finished.catch(() => {});
+  }
+  if (revision !== menuRevision) return;
+  if (url.pathname === "/projects") resetProjectFiltersFor("/projects");
+  await routeProject(
+    /^\/projects\/([a-f0-9-]+)$/.exec(url.pathname)?.[1] || null,
+    push,
+    url.pathname + url.hash,
+  );
+  if (revision !== menuRevision) return;
+  menuAnimation?.cancel();
+  if (animate) {
+    menuAnimation = main.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: 240,
+      easing: "ease-out",
+    });
+  }
+  if (!url.hash) {
+    main.setAttribute("tabindex", "-1");
+    main.focus({ preventScroll: true });
+  }
+}
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[href]");
+  if (
+    !link ||
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey ||
+    link.target ||
+    link.hasAttribute("download")
+  )
+    return;
+  const url = new URL(link.href);
+  if (
+    url.origin !== location.origin ||
+    url.search ||
+    !/^\/$|^\/(team|settings|marketing|new|projects)$|^\/projects\/(active|held|deleted|[a-f0-9-]+)$/.test(
+      url.pathname,
+    )
+  )
+    return;
+  event.preventDefault();
+  void navigateOffice(url);
+});
+window.addEventListener(
+  "popstate",
+  () => void navigateOffice(new URL(location.href), false),
 );
 window.addEventListener("pagehide", () => {
   document
@@ -414,9 +473,12 @@ function error(message) {
   $("#error").textContent = message;
 }
 async function refresh() {
+  const requestedPath = location.pathname;
   // Status polling must not delay the actual project list.
   void updateBatchStatus();
-  projects = await request("/api/projects");
+  const receivedProjects = await request("/api/projects");
+  if (requestedPath !== location.pathname) return;
+  projects = receivedProjects;
   const heldPage = location.pathname === "/projects/held";
   const visibleProjects = projects.filter((p) => !!p.onHold === heldPage);
   $("#project-list h2").textContent = heldPage
@@ -1161,13 +1223,17 @@ $("#clear-project-name").onclick = () => {
   applyProjectNameSearch();
   $("#project-name-query").focus();
 };
+function resetProjectFiltersFor(path) {
+  const key = "project-list:" + path;
+  projectNameQueries.set(key, "");
+  projectTypePreferences.set(key, "all");
+  favoritesOnlyPreferences.set(key, false);
+  approvalOnlyPreferences.set(key, false);
+  updatesOnlyPreferences.set(key, false);
+}
 $("#reset-project-filters").onclick = () => {
   $("#project-name-query").value = "";
-  projectNameQueries.set("project-list:" + location.pathname, "");
-  projectTypePreferences.set("project-list:" + location.pathname, "all");
-  favoritesOnlyPreferences.set("project-list:" + location.pathname, false);
-  approvalOnlyPreferences.set("project-list:" + location.pathname, false);
-  updatesOnlyPreferences.set("project-list:" + location.pathname, false);
+  resetProjectFiltersFor(location.pathname);
   applyProjectNameSearch();
   $("#project-name-query").focus();
 };
@@ -1492,6 +1558,7 @@ document.querySelectorAll("[data-check]").forEach(
     }),
 );
 config().catch((e) => error(e.message));
+if (location.pathname === "/projects") resetProjectFiltersFor("/projects");
 routeProject(selected, false);
 setInterval(() => {
   if (!selected) refresh().catch((e) => error(e.message));

@@ -206,3 +206,5 @@ window.addEventListener("pagehide", stopAIRotation);
 window.addEventListener("pageshow", () => scheduleAIRotation());
 reducedMotion.addEventListener("change", () => scheduleAIRotation());
 scheduleAIRotation();
+
+window.addEventListener("office-route-change", () => scheduleAIRotation());

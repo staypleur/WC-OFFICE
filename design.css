@@ -1931,10 +1931,43 @@ aside .owner {
   line-height: 1.08;
 }
 .hero-copy h1 span {
+  display: inline-block;
+  padding: 0.08em 0.12em 0.12em 0.02em;
+  margin: -0.08em -0.12em -0.12em -0.02em;
   background: linear-gradient(120deg, #eff9ff 5%, #8fdfff 48%, #568aff 100%);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
+}
+.repository-changes {
+  margin: 16px 0;
+  padding: 18px 20px;
+  border: 1px solid #5da9eb33;
+  border-left: 3px solid #78d9ff;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #16365566, #101a2944);
+  overflow-wrap: anywhere;
+}
+.repository-changes h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #b6e6ff;
+}
+.repository-changes p,
+.repository-changes li {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.repository-changes ul {
+  padding-left: 18px;
+  margin: 8px 0;
+}
+.repository-changes small {
+  color: #819bb7;
+  font-size: 11px;
+}
+.repository-changes .change-unchanged {
+  color: #9ab2c9;
 }
 .batch-refresh-controls {
   display: flex;

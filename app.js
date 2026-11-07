@@ -766,6 +766,37 @@ function repositoryReportHtml(p) {
       "</div>"
     : "";
   if (!r) return syncHtml;
+  const delta = r.changeReport;
+  const unchanged = sync.state === "current" && sync.noChanges === true;
+  const deltaHtml =
+    '<section class="repository-changes"><h3>이전보다 달라진 점</h3>' +
+    (unchanged
+      ? '<p class="change-unchanged">이번 확인에서는 새 코드 변경이 없습니다.</p>'
+      : "") +
+    (delta
+      ? "<small>" +
+        (unchanged ? "최근 변경 기록 · " : "") +
+        escape(new Date(delta.checkedAt).toLocaleString("ko-KR")) +
+        "</small>" +
+        (delta.state === "changed"
+          ? "<ul>" +
+            delta.items
+              .map((item) => "<li>" + escape(item) + "</li>")
+              .join("") +
+            "</ul>"
+          : "<p>" +
+            (delta.state === "baseline"
+              ? "첫 분석 결과를 저장했습니다. 다음 갱신부터 변경 내용을 비교합니다."
+              : "이전 커밋과 비교할 수 없어 최신 진행 요약만 갱신했습니다.") +
+            "</p>") +
+        "<small>" +
+        (delta.from ? escape(delta.from.slice(0, 8)) + " → " : "") +
+        escape(delta.to.slice(0, 8)) +
+        "</small>"
+      : !unchanged
+        ? "<p>다음 코드 변경이 감지되면 변경 내용을 요약합니다.</p>"
+        : "") +
+    "</section>";
   const list = (title, items) =>
     "<div><small>" +
     title +
@@ -774,6 +805,7 @@ function repositoryReportHtml(p) {
     "</ul></div>";
   return (
     syncHtml +
+    deltaHtml +
     '<section class="repository-report"><h3>GitHub 코드 분석</h3><p>' +
     escape(r.summary) +
     '</p><div class="repository-columns">' +

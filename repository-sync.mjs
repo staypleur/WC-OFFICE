@@ -240,12 +240,22 @@ export function parseReport(text, files) {
     )
       throw new Error("AI 요약 항목 오류. 기존 요약을 유지합니다.");
   }
+  if (
+    report.changes !== undefined &&
+    (!Array.isArray(report.changes) ||
+      report.changes.length > 3 ||
+      report.changes.some(
+        (v) => typeof v !== "string" || !v.trim() || v.length > 600,
+      ))
+  )
+    throw new Error("변경 요약 형식 오류. 기존 요약을 유지합니다.");
   return {
     stage: report.stage,
     summary: report.summary,
     implemented: report.implemented,
     remaining: report.remaining,
     validation: report.validation,
+    changes: report.changes || [],
     evidence: files.map((f) => f.path),
   };
 }
@@ -264,8 +274,29 @@ async function summarize(project, latest, evidence) {
       treeTruncated: evidence.treeTruncated,
       files: evidence.files,
     });
-  const output = await codex(prompt, 180000, { cwd });
+  const changeInstruction =
+    "\n추가 JSON 필드 changes: 최대 3개의 짧은 한국어 문장 배열. previous와 최신 커밋 사이에서 실제로 추가·수정·삭제된 내용만 구체적으로 설명하고 전체 기능 소개를 반복하지 마라. compared가 false이거나 이전 보고서가 없으면 changes는 빈 배열로 반환하라. 패치와 최신 코드에서 확인된 범위만 설명하고 변경 파일 목록이 일부일 수 있음을 유의하라.";
+  const output = await codex(prompt + changeInstruction, 180000, { cwd });
   return parseReport(output, evidence.files);
+}
+
+export function changeReport(previous, latest, evidence, summary, checkedAt) {
+  const compared = !!previous?.commit && evidence.compared === true;
+  return {
+    state: !previous?.commit
+      ? "baseline"
+      : compared
+        ? "changed"
+        : "unavailable",
+    from: previous?.commit || null,
+    to: latest.sha,
+    checkedAt,
+    items: compared
+      ? summary.changes?.length
+        ? summary.changes.slice(0, 3)
+        : ["최근 커밋: " + latest.message.split("\n")[0]]
+      : [],
+  };
 }
 
 export function createRepositorySync({
@@ -351,6 +382,7 @@ export function createRepositorySync({
       if (project.repositoryReport?.commit === latest.sha) {
         project.repositorySync = {
           state: "current",
+          noChanges: true,
           checkedAt: now(),
           latestCommit: latest.sha,
           error: null,
@@ -371,6 +403,13 @@ export function createRepositorySync({
       if (!valid()) return;
       project.repositoryReport = {
         ...summary,
+        changeReport: changeReport(
+          project.repositoryReport,
+          latest,
+          evidence,
+          summary,
+          now(),
+        ),
         commit: latest.sha,
         branch: latest.branch,
         checkedAt: now(),
@@ -382,6 +421,7 @@ export function createRepositorySync({
       };
       project.repositorySync = {
         state: "current",
+        noChanges: false,
         checkedAt: now(),
         updatedAt: now(),
         latestCommit: latest.sha,

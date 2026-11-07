@@ -6,10 +6,66 @@ import {
   eligibleSource,
   redactSource,
   parseReport,
+  changeReport,
 } from "./repository-sync.mjs";
 
 const old = "a".repeat(40),
   next = "b".repeat(40);
+
+test("change summaries distinguish compared commits, first reports and unavailable history", () => {
+  const latest = { sha: next, message: "Added refresh" };
+  const summary = { changes: ["프로젝트별 새로고침 버튼 추가"] };
+  const delta = changeReport(
+    { commit: old },
+    latest,
+    { compared: true },
+    summary,
+    "now",
+  );
+  assert.equal(delta.from, old);
+  assert.equal(delta.to, next);
+  assert.deepEqual(delta.items, summary.changes);
+  assert.equal(delta.state, "changed");
+  assert.equal(
+    changeReport(null, latest, {}, summary, "now").state,
+    "baseline",
+  );
+  const missing = changeReport(
+    { commit: old },
+    latest,
+    { compared: false },
+    summary,
+    "now",
+  );
+  assert.equal(missing.state, "unavailable");
+  assert.deepEqual(missing.items, []);
+});
+
+test("unchanged checks preserve the last actual change summary", async () => {
+  const f = fixture({
+    getEvidence: async () => ({ compared: true }),
+    generate: async () => ({ changes: ["새 버튼 추가"], summary: "Updated" }),
+  });
+  await f.sync.refresh("one");
+  const delta = f.project.repositoryReport.changeReport;
+  assert.deepEqual(delta.items, ["새 버튼 추가"]);
+  assert.equal(f.project.repositorySync.noChanges, false);
+  await f.sync.refresh("one");
+  assert.equal(f.project.repositorySync.noChanges, true);
+  assert.deepEqual(f.project.repositoryReport.changeReport, delta);
+});
+
+test("invalid change summary is rejected", () => {
+  const report = {
+    stage: "done",
+    summary: "summary",
+    validation: "not run",
+    implemented: [],
+    remaining: [],
+    changes: [42],
+  };
+  assert.throws(() => parseReport(JSON.stringify(report), []));
+});
 
 test("batch refresh counts success, failures and skips and ignores duplicate starts", async () => {
   let release;

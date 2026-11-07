@@ -2740,6 +2740,37 @@ aside .owner {
     border-color 0.18s,
     background 0.18s;
 }
+.project-list-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #8acbff1a;
+}
+.project-action-pair {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.project-type-filters .project-list-actions button {
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+@media (max-width: 600px) {
+  .project-list-actions {
+    gap: 12px;
+  }
+  .project-action-pair {
+    width: 100%;
+  }
+  .project-type-filters .project-list-actions .project-filter-reset {
+    margin-left: 0;
+  }
+}
 .project-type-filters button:hover {
   border-color: #73b9e6;
 }

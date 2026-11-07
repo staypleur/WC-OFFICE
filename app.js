@@ -718,10 +718,17 @@ function applyProjectNameSearch() {
   const cards = [...document.querySelectorAll("#projects .project-accordion")];
   const typeCounts = { all: 0, unity: 0, web: 0, roblox: 0 };
   let matched = 0;
+  let favoriteCount = 0;
   for (const card of cards) {
     const p = projects.find((project) => project.id === card.dataset.project);
     const parts = searchParts(p?.name || p?.goal || "", query);
     const matchesName = !query || parts.some((part) => part.match);
+    if (
+      matchesName &&
+      (type === "all" || p?.type === type) &&
+      projectFavorites.get(p?.id) === true
+    )
+      favoriteCount++;
     const matchesFavorite =
       !favoritesOnly || projectFavorites.get(p?.id) === true;
     if (matchesName && matchesFavorite) {
@@ -744,6 +751,7 @@ function applyProjectNameSearch() {
   document.querySelectorAll("[data-project-type-count]").forEach((node) => {
     node.textContent = typeCounts[node.dataset.projectTypeCount];
   });
+  $("#favorites-only-count").textContent = favoriteCount;
   const filtered = !!query || type !== "all" || favoritesOnly;
   $("#count").textContent = filtered
     ? `${matched} / ${cards.length}개`

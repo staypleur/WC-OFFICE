@@ -1,4 +1,7 @@
 import os from "node:os";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execute = promisify(execFile);
 
 export function cpuUsage(previous, current) {
   const total = current.total - previous.total;
@@ -44,4 +47,73 @@ export function systemSnapshot() {
     os: { name: os.type(), release: os.release(), architecture: os.arch() },
     uptime: os.uptime(),
   };
+}
+
+export function rankProcesses(rows, previous, elapsed, cores) {
+  const measured = rows.map((p) => {
+    const before = previous.get(p.id);
+    const cpu =
+      before && before.name === p.name && elapsed > 0 && p.cpu >= before.cpu
+        ? Math.min(
+            100,
+            Math.max(0, ((p.cpu - before.cpu) / elapsed / cores) * 100),
+          )
+        : null;
+    return {
+      id: p.id,
+      name: p.name,
+      cpu: cpu === null ? null : Math.round(cpu * 10) / 10,
+      memory: p.memory,
+    };
+  });
+  return {
+    cpu: measured
+      .filter((p) => p.cpu !== null)
+      .sort((a, b) => b.cpu - a.cpu)
+      .slice(0, 5),
+    memory: [...measured].sort((a, b) => b.memory - a.memory).slice(0, 5),
+  };
+}
+let processRows = new Map(),
+  processAt = 0,
+  processCache,
+  processPending;
+export async function processSnapshot() {
+  if (os.platform() !== "win32")
+    return { error: "프로그램별 사용량은 Windows에서 지원합니다." };
+  if (processCache && Date.now() - processAt < 2500) return processCache;
+  if (processPending) return processPending;
+  processPending = (async () => {
+    try {
+      const script =
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; @(Get-Process | Where-Object { $_.Id -ne 0 } | ForEach-Object { @{id=$_.Id;name=$_.ProcessName;cpu=[double]$_.CPU;memory=[double]$_.WorkingSet64} }) | ConvertTo-Json -Compress";
+      const { stdout } = await execute(
+        "powershell.exe",
+        ["-NoProfile", "-NonInteractive", "-Command", script],
+        { windowsHide: true, timeout: 7000, maxBuffer: 1024 * 1024 },
+      );
+      const rows = JSON.parse(stdout.replace(/^\uFEFF/, ""));
+      const at = Date.now();
+      processCache = {
+        ...rankProcesses(
+          rows,
+          processRows,
+          (at - processAt) / 1000,
+          os.cpus().length,
+        ),
+        sampledAt: new Date(at).toISOString(),
+      };
+      processRows = new Map(rows.map((p) => [p.id, p]));
+      processAt = at;
+      return processCache;
+    } catch {
+      return {
+        error:
+          "프로그램별 사용량을 확인하지 못했습니다. 다음 갱신에서 다시 시도합니다.",
+      };
+    } finally {
+      processPending = null;
+    }
+  })();
+  return processPending;
 }

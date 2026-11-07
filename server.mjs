@@ -1,7 +1,7 @@
 import http from "node:http";
-import { systemSnapshot } from "./system-monitor.mjs";
+import { systemSnapshot, processSnapshot } from "./system-monitor.mjs";
 import { createMarketing } from "./marketing.mjs";
-import { codexLoginStatus, connectionState } from "./connection-status.mjs";
+import { createConnectionMonitor } from "./connection-status.mjs";
 import path from "node:path";
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -304,6 +304,7 @@ const marketing = createMarketing({
     return marketingWrites;
   },
 });
+const connectionMonitor = createConnectionMonitor();
 const server = http.createServer(async (req, res) => {
   try {
     if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
@@ -424,35 +425,17 @@ const server = http.createServer(async (req, res) => {
       );
     if (req.method === "GET" && req.url === "/api/system") {
       res.setHeader("Cache-Control", "no-store");
-      return send(res, 200, systemSnapshot());
+      return send(res, 200, {
+        ...systemSnapshot(),
+        processes: await processSnapshot(),
+      });
+    }
+    if (req.method === "GET" && req.url === "/api/connections") {
+      res.setHeader("Cache-Control", "no-store");
+      return send(res, 200, await connectionMonitor.snapshot());
     }
     if (req.method === "GET" && req.url === "/api/config") {
-      const codexLoggedIn = await codexLoginStatus();
-      const connections = Object.fromEntries(
-        [
-          ...roles,
-          { id: "cursor", key: "CURSOR_API_KEY" },
-          { id: "notion", key: "NOTION_TOKEN" },
-          { id: "stability", key: "STABILITY_API_KEY" },
-          { id: "meshy", key: "MESHY_API_KEY" },
-        ].map((r) => [
-          r.id,
-          verified.has(r.id)
-            ? "응답 확인됨"
-            : r.id === "codex"
-              ? codexLoggedIn
-                ? "로그인 확인됨"
-                : "로그인 필요"
-              : r.key && process.env[r.key]
-                ? "키 설정됨 · 연결 확인 필요"
-                : "연결 필요",
-        ]),
-      );
-      Object.assign(connections, {
-        midjourney: "수동 사용",
-        copilot: "수동 사용",
-        tripo: "자동 연결 미지원",
-      });
+      const connectionSnapshot = await connectionMonitor.snapshot();
       return send(res, 200, {
         defaultFolder: process.cwd(),
         unity: await findUnity(),
@@ -460,13 +443,7 @@ const server = http.createServer(async (req, res) => {
           key,
           configured: !!process.env[key],
         })),
-        connections,
-        connectionStates: Object.fromEntries(
-          Object.entries(connections).map(([id, status]) => [
-            id,
-            connectionState(id, status),
-          ]),
-        ),
+        ...connectionSnapshot,
       });
     }
     if (
@@ -503,30 +480,18 @@ const server = http.createServer(async (req, res) => {
       Object.assign(settings, next);
       Object.assign(process.env, next);
       verified.clear();
+      connectionMonitor.invalidate();
       return send(res, 200, { ok: true });
     }
     if (req.url === "/api/check") {
-      verified.delete(body.provider);
-      if (body.provider === "codex")
-        await runProvider(
-          "codex",
-          "도구 없이 WC Office 연결 확인이라고만 답하세요.",
+      connectionMonitor.invalidate();
+      const snapshot = await connectionMonitor.snapshot();
+      if (snapshot.connectionStates[body.provider] !== "connected")
+        throw Error(
+          snapshot.connections[body.provider] ||
+            "지원하지 않는 연결 검사입니다.",
         );
-      else if (body.provider === "notion")
-        await api(
-          "https://api.notion.com/v1/users/me",
-          process.env.NOTION_TOKEN,
-          undefined,
-          { "Notion-Version": "2022-06-28" },
-        );
-      else if (body.provider === "cursor")
-        await api(
-          "https://api.cursor.com/v1/agents?limit=1",
-          process.env.CURSOR_API_KEY,
-        );
-      else throw new Error("지원하지 않는 연결 검사입니다.");
-      verified.add(body.provider);
-      return send(res, 200, { message: "실제 응답 확인됨" });
+      return send(res, 200, { message: snapshot.connections[body.provider] });
     }
     if (req.url === "/api/marketing/chat") {
       await marketing.send(body.id, body.message);

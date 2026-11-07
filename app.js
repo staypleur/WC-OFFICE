@@ -713,14 +713,7 @@ function renderProject(project) {
 async function config() {
   const data = await request("/api/config");
   if (!$("#folder").value) $("#folder").value = data.defaultFolder;
-  for (const [name, status] of Object.entries(data.connections)) {
-    const node = document.getElementById(name);
-    if (node) {
-      node.textContent = status;
-      node.dataset.connectionState = data.connectionStates?.[name] || "manual";
-    }
-  }
-  window.dispatchEvent(new Event("office-connections-change"));
+  applyConnectionSnapshot(data);
   const names = {
     ANTHROPIC_API_KEY: "Claude API 키",
     V0_API_KEY: "v0 API 키",
@@ -2105,3 +2098,72 @@ function repositoryReportHtml(p) {
     "</pre></details></details>"
   );
 }
+
+function applyConnectionSnapshot(data) {
+  for (const [name, status] of Object.entries(data.connections)) {
+    const node = document.getElementById(name);
+    if (node) {
+      node.textContent = status;
+      node.dataset.connectionState = data.connectionStates?.[name] || "manual";
+      node.title = data.checkedAt
+        ? "마지막 자동 확인: " +
+          new Date(data.checkedAt).toLocaleTimeString("ko-KR")
+        : status;
+    }
+  }
+  window.dispatchEvent(new Event("office-connections-change"));
+}
+
+let connectionTimer, connectionRequest;
+async function pollConnections() {
+  clearTimeout(connectionTimer);
+  connectionRequest?.abort();
+  if (document.hidden) return;
+  const controller = new AbortController();
+  connectionRequest = controller;
+  try {
+    const response = await fetch("/api/connections", {
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]),
+      cache: "no-store",
+    });
+    if (!response.ok) throw Error("Connection status unavailable");
+    const data = await response.json();
+    if (!controller.signal.aborted) applyConnectionSnapshot(data);
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      document
+        .querySelectorAll(".connection[data-connection-state]")
+        .forEach((node) => {
+          if (node.dataset.connectionState !== "manual") {
+            node.dataset.connectionState = "disconnected";
+            node.textContent = "상태 확인 실패 · 재시도 중";
+          }
+        });
+      window.dispatchEvent(new Event("office-connections-change"));
+    }
+  } finally {
+    if (!controller.signal.aborted && !document.hidden)
+      connectionTimer = setTimeout(pollConnections, 30000);
+  }
+}
+document.addEventListener("visibilitychange", pollConnections);
+window.addEventListener("online", pollConnections);
+window.addEventListener("offline", () => {
+  clearTimeout(connectionTimer);
+  connectionRequest?.abort();
+  document
+    .querySelectorAll(".connection[data-connection-state]")
+    .forEach((node) => {
+      if (node.dataset.connectionState !== "manual") {
+        node.dataset.connectionState = "disconnected";
+        node.textContent = "네트워크 연결 끊김";
+      }
+    });
+  window.dispatchEvent(new Event("office-connections-change"));
+});
+window.addEventListener("pagehide", () => {
+  clearTimeout(connectionTimer);
+  connectionRequest?.abort();
+});
+window.addEventListener("pageshow", pollConnections);
+pollConnections();

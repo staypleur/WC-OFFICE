@@ -3546,3 +3546,48 @@ html[data-project-loading] #project-list {
   background: var(--connection-color);
   border: 2px solid #0d1b2b;
 }
+.system-processes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 22px;
+}
+.system-processes article {
+  background: #0d1b2bea;
+  border: 1px solid #8bcbff26;
+  border-radius: 18px;
+  padding: 24px;
+}
+.system-processes h2 {
+  font-size: 15px;
+  margin: 0 0 18px;
+}
+.system-processes ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.system-processes li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #ffffff09;
+  color: #b7cce0;
+  font-size: 12px;
+}
+.system-processes li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.system-processes li strong {
+  flex-shrink: 0;
+  color: #93deff;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 700px) {
+  .system-processes {
+    grid-template-columns: 1fr;
+  }
+}

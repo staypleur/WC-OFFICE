@@ -24,6 +24,10 @@ const comparisonQueries = createComparisonPreference(
   comparisonStorage,
   "query",
 );
+const projectNameQueries = createComparisonPreference(
+  comparisonStorage,
+  "query",
+);
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -123,6 +127,8 @@ let chatStream = null;
 let lastChatView = "";
 
 function setPageVisibility(id) {
+  $("#project-name-query").value =
+    projectNameQueries.get("project-list:" + location.pathname) || "";
   const page = id ? "room" : location.pathname;
   const groups = [
     [".hero", ["/"]],
@@ -354,9 +360,6 @@ async function refresh() {
   $("#project-list h2").textContent = heldPage
     ? "보류 프로젝트"
     : "진행 프로젝트";
-  $("#count").textContent = `${visibleProjects.length}개`;
-  $("#expand-projects").disabled = !visibleProjects.length;
-  $("#collapse-projects").disabled = !visibleProjects.length;
   $("#marketing-projects").innerHTML =
     projects
       .map(
@@ -447,6 +450,7 @@ async function refresh() {
       .querySelectorAll("[data-compare-project]")
       .forEach(applyChangeSearch);
   }
+  applyProjectNameSearch();
   const deleted = await request("/api/projects/deleted");
   $("#deleted-project-list").innerHTML =
     deleted
@@ -672,8 +676,45 @@ $("#projects").addEventListener(
   },
   true,
 );
-function setAllProjectsExpanded(open) {
+function applyProjectNameSearch() {
+  const query = $("#project-name-query").value.trim();
   const cards = [...document.querySelectorAll("#projects .project-accordion")];
+  let matched = 0;
+  for (const card of cards) {
+    const p = projects.find((project) => project.id === card.dataset.project);
+    card.hidden =
+      !!query &&
+      !searchParts(p?.name || p?.goal || "", query).some((part) => part.match);
+    if (!card.hidden) matched++;
+  }
+  $("#count").textContent = query
+    ? `${matched} / ${cards.length}개`
+    : `${cards.length}개`;
+  $("#project-search-status").textContent = query
+    ? `${matched}개 검색됨 · 펼치기·접기는 검색 결과에만 적용`
+    : "";
+  $("#project-search-empty").hidden = !query || matched > 0;
+  $("#clear-project-name").disabled = !$("#project-name-query").value.length;
+  $("#expand-projects").disabled = !matched;
+  $("#collapse-projects").disabled = !matched;
+}
+$("#project-name-query").addEventListener("input", (event) => {
+  projectNameQueries.set(
+    "project-list:" + location.pathname,
+    event.target.value,
+  );
+  applyProjectNameSearch();
+});
+$("#clear-project-name").onclick = () => {
+  $("#project-name-query").value = "";
+  projectNameQueries.set("project-list:" + location.pathname, "");
+  applyProjectNameSearch();
+  $("#project-name-query").focus();
+};
+function setAllProjectsExpanded(open) {
+  const cards = [
+    ...document.querySelectorAll("#projects .project-accordion:not([hidden])"),
+  ];
   if (!cards.length) return;
   cancelPositionRestore();
   for (const card of cards) {

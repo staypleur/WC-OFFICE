@@ -111,6 +111,26 @@
             aria-label="전체 프로젝트 갱신 진행률"
           ></progress>
         </div>
+        <div class="project-name-search">
+          <label
+            ><span>프로젝트 이름 검색</span
+            ><input
+              id="project-name-query"
+              type="search"
+              maxlength="200"
+              placeholder="프로젝트 이름을 입력하세요"
+              aria-controls="projects"
+          /></label>
+          <button type="button" id="clear-project-name">검색 지우기</button>
+          <span
+            id="project-search-status"
+            role="status"
+            aria-live="polite"
+          ></span>
+        </div>
+        <p id="project-search-empty" class="project-search-empty" hidden>
+          일치하는 프로젝트가 없습니다. 다른 이름으로 검색해주세요.
+        </p>
       </div>
       <div id="projects"></div>
       <section id="deleted-projects">

@@ -1,4 +1,6 @@
+import { projectSummary } from "/project-summary.mjs";
 const $ = (selector) => document.querySelector(selector);
+let reportId = null;
 const escape = (value) =>
   String(value ?? "").replace(
     /[&<>"']/g,
@@ -77,14 +79,28 @@ async function refresh() {
     projects
       .map(
         (p) =>
-          `<button class="project-choice ${p.id === selected ? "selected" : ""}" data-select="${escape(p.id)}"><strong>${escape(p.name || p.goal)}</strong><span>${escape(p.status)}</span></button>`,
+          `<button class="project-choice ${p.id === reportId ? "selected" : ""}" aria-expanded="${p.id === reportId}" data-select="${escape(p.id)}"><small>${escape(p.type.toUpperCase())}</small><strong>${escape(p.name || p.goal)}</strong><span>${escape(projectSummary(p).progress)}</span></button>`,
       )
       .join("") || '<div class="empty">프로젝트를 만들어 시작하세요.</div>';
+  if (reportId) renderReport(reportId);
   const project = projects.find((p) => p.id === selected);
   $("#workspace").hidden = !project;
   if (selected && !project)
     error("프로젝트를 찾지 못했습니다. 프로젝트 목록으로 돌아가주세요.");
   if (project) renderProject(project);
+}
+function renderReport(id) {
+  const p = projects.find((p) => p.id === id);
+  if (!p) return;
+  reportId = id;
+  const s = projectSummary(p);
+  $("#project-report").hidden = false;
+  $("#project-report").innerHTML =
+    `<div class="section-head"><h2>${escape(p.name)}</h2><a class="report-open" href="/projects/${escape(id)}">작업실 입장 ↗</a></div><div class="report-grid"><div><small>진행 상황</small><p>${escape(s.progress)}</p><span>완료 작업 ${s.completed} / ${s.total}</span></div><div><small>필요한 승인</small><p>${escape(s.approval)}</p></div><div><small>최근 결과 요약</small><p>${escape(s.result)}</p></div></div>`;
+  document.querySelectorAll("[data-select]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.select === id);
+    button.setAttribute("aria-expanded", String(button.dataset.select === id));
+  });
 }
 function renderProject(project) {
   if (project.id !== selected) return;
@@ -133,6 +149,7 @@ function renderProject(project) {
         .map(
           (item) =>
             '<article class="team-event ' +
+            (item.from === "우찬" ? "mine " : "") +
             escape(item.kind) +
             '"><div class="event-route"><strong>' +
             escape(item.from) +
@@ -149,14 +166,14 @@ function renderProject(project) {
             escape(item.text) +
             "</p>" +
             (item.detail
-              ? "<details><summary>전달 내용 보기</summary><pre>" +
+              ? '<div class="chat-body"><pre>' +
                 escape(item.detail) +
-                "</pre></details>"
+                "</pre></div>"
               : "") +
             "</article>",
         )
         .join("") ||
-      '<div class="empty">제작을 시작하면 AI의 작업과 인수인계가 여기에 표시됩니다.</div>';
+      '<div class="empty">팀 채팅방입니다. 목표와 첫 지시를 남겨주세요.</div>';
     if (follow) feed.scrollTop = feed.scrollHeight;
     $("#current-work").textContent = project.phase
       ? project.phase.agent + " · " + project.phase.title
@@ -170,7 +187,7 @@ function renderProject(project) {
   const busy = project.status === "작업 중";
   $("#project-status").textContent = project.status;
   $("#workspace")
-    .querySelectorAll("button")
+    .querySelectorAll("button:not(#chat-form button)")
     .forEach((button) => (button.disabled = busy));
   $("#open-unity").disabled = busy || !project.unityFolder;
   $("#open-unity").hidden = project.type !== "unity";
@@ -259,12 +276,14 @@ $("#choose-folder").onclick = async (event) => {
 $("#projects").onclick = async (event) => {
   const button = event.target.closest("[data-select]");
   if (button) {
-    routeProject(button.dataset.select);
+    renderReport(button.dataset.select);
   }
 };
 $("#chat-form").onsubmit = async (event) => {
   event.preventDefault();
   error("");
+  const sendButton = $("#chat-form button");
+  sendButton.disabled = true;
   try {
     await request("/api/chat", {
       id: selected,
@@ -274,6 +293,8 @@ $("#chat-form").onsubmit = async (event) => {
     await refresh();
   } catch (e) {
     error(e.message);
+  } finally {
+    sendButton.disabled = false;
   }
 };
 $("#project-settings").onsubmit = async (event) => {

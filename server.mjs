@@ -72,6 +72,7 @@ for (const p of projects) {
   p.events ||= [];
   p.tasks ||= [];
   p.activity ||= [];
+  p.pendingInstructions ||= [];
   for (const record of [...p.messages, ...p.tasks]) {
     const key = record.role ? "text" : "output";
     if (
@@ -162,9 +163,26 @@ function job(p, title, provider, work) {
         } catch {
           p.events.push("프로젝트 폴더 기록 실패. 서버에는 기록이 보관됩니다.");
         }
-      active.delete(p.id);
       p.phase = null;
       await save();
+      active.delete(p.id);
+      if (p.pendingInstructions?.length) {
+        const pending = p.pendingInstructions.splice(0);
+        job(p, "추가 지시 검토", "Codex", async () => {
+          await teamEvent(
+            p,
+            "Codex",
+            "팀 전체",
+            "작업 중 받은 추가 지시를 검토합니다.",
+            pending.join("\n"),
+          );
+          return runProvider(
+            "codex",
+            "추가 지시를 반영해 다음 작업 계획을 간결하게 답하라. 이미 생성한 파일이 수정됐다고 주장하지 마라. 코드 반영은 사용자가 제작 버튼을 눌러야 한다고 안내하라. 도구 실행 금지.\n" +
+              context(p),
+          );
+        });
+      }
     }
   })();
   promise.catch((error) => console.error("작업 저장 실패", error.message));
@@ -286,7 +304,13 @@ const server = http.createServer(async (req, res) => {
     if (
       req.method === "GET" &&
       (projectPage ||
-        ["/", "/app.js", "/motion.js", "/design.css"].includes(req.url))
+        [
+          "/",
+          "/app.js",
+          "/motion.js",
+          "/design.css",
+          "/project-summary.mjs",
+        ].includes(req.url))
     ) {
       res.writeHead(200, {
         "Content-Type":
@@ -450,8 +474,27 @@ const server = http.createServer(async (req, res) => {
         return compileUnity(p.unityFolder);
       });
     } else if (req.url === "/api/chat") {
-      if (active.has(p.id)) throw new Error("현재 답변을 기다려주세요.");
-      p.messages.push({ role: "우찬", text: requireText(body.message) });
+      const message = requireText(body.message);
+      p.messages.push({ role: "우찬", text: message });
+      p.activity.push({
+        id: randomUUID(),
+        at: new Date().toISOString(),
+        from: "우찬",
+        to: "팀 전체",
+        kind: "instruction",
+        text: message,
+      });
+      p.approved = false;
+      if (active.has(p.id)) {
+        (p.pendingInstructions ||= []).push(message);
+        await teamEvent(
+          p,
+          "시스템",
+          "우찬",
+          "지시를 접수했습니다. 이후 AI 요청에 포함되며, 현재 작업이 끝나면 Codex가 추가 지시를 검토합니다. 진행 중인 응답은 즉시 중단되지 않습니다.",
+        );
+        return send(res, 202, { queued: true });
+      }
       job(p, "기획 대화", "Codex", async () =>
         runProvider(
           "codex",

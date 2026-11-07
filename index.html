@@ -22,10 +22,12 @@
           alt="WC Office"
         />
       </div>
-      <a class="nav" href="/#form">새 프로젝트</a
-      ><a class="side-link" href="/#project-list">프로젝트</a
-      ><a class="side-link" href="/#ai-team">AI 팀</a
-      ><a class="side-link" href="/#settings">연결 설정</a>
+      <nav aria-label="주 메뉴">
+        <a class="nav" href="/#form">새 프로젝트</a
+        ><a class="side-link" href="/#project-list">프로젝트</a
+        ><a class="side-link" href="/#ai-team">AI 팀</a
+        ><a class="side-link" href="/#settings">연결 설정</a>
+      </nav>
       <div class="owner"><b>W</b>우찬님의 작업실</div>
     </aside>
     <main>
@@ -35,19 +37,8 @@
       <section class="hero">
         <div class="hero-copy">
           <div class="eyebrow">YOUR PERSONAL STUDIO</div>
-          <h1>
-            <em>우찬님</em><br /><span>안녕하세요</span
-            ><b class="greeting-dot">.</b>
-          </h1>
-          <p class="hero-sub">아이디어를 현실로 만드는 나만의 AI 팀.</p>
-          <a class="hero-link" href="/#form"
-            >프로젝트 시작하기 <span>↗</span></a
-          >
-          <div class="hero-types" aria-label="프로젝트 유형 빠른 선택">
-            <button data-project-type="unity"><i></i>Unity</button
-            ><button data-project-type="web"><i></i>Web</button
-            ><button data-project-type="roblox"><i></i>Roblox</button>
-          </div>
+          <h1><em>우찬님</em><br /><span>환영합니다.</span></h1>
+          <p class="hero-sub">오늘의 프로젝트, 한눈에.</p>
         </div>
         <div class="studio-stage" aria-hidden="true">
           <div class="stage-corner">WC / CREATIVE ENGINE</div>
@@ -56,22 +47,11 @@
             <div class="orbit"><div class="satellite"></div></div>
             <div class="orbit second"></div>
             <div class="core">
-              <svg viewBox="0 0 110 90" fill="none">
-                <path
-                  d="M93 21A37 37 0 1 0 93 69"
-                  stroke="#69cfff"
-                  stroke-width="5"
-                  stroke-linecap="round"
-                />
-                <path
-                  d="m24 30 12 33 18-26 17 26 12-33"
-                  stroke="white"
-                  stroke-width="7"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <circle cx="98" cy="45" r="4" fill="#8bdfff" />
-              </svg>
+              <img
+                class="core-logo"
+                src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2080%2080%22%20fill%3D%22none%22%3E%0A%20%20%3Ctitle%3EWC%20Office%3C%2Ftitle%3E%0A%20%20%3Cdefs%3E%0A%20%20%20%20%3ClinearGradient%20id%3D%22screen%22%20x1%3D%2212%22%20y1%3D%2260%22%20x2%3D%2268%22%20y2%3D%2212%22%20gradientUnits%3D%22userSpaceOnUse%22%3E%0A%20%20%20%20%20%20%3Cstop%20stop-color%3D%22%233675FF%22%2F%3E%0A%20%20%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2379D5FF%22%2F%3E%0A%20%20%20%20%3C%2FlinearGradient%3E%0A%20%20%3C%2Fdefs%3E%0A%20%20%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2278%22%20height%3D%2278%22%20rx%3D%2220%22%20fill%3D%22%230C1424%22%20stroke%3D%22%23294367%22%20stroke-width%3D%222%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M64%2024V21a6%206%200%200%200-6-6H22a6%206%200%200%200-6%206v31a6%206%200%200%200%206%206h36a6%206%200%200%200%206-6v-3%22%20stroke%3D%22url(%23screen)%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Cpath%20d%3D%22m25%2029%207%2017%208-12%208%2012%207-17%22%20stroke%3D%22%23F3F7FF%22%20stroke-width%3D%224.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M40%2059v7m-10%200h20%22%20stroke%3D%22%2379D5FF%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2264%22%20cy%3D%2236%22%20r%3D%223%22%20fill%3D%22%2379D5FF%22%2F%3E%0A%3C%2Fsvg%3E%0A"
+                alt=""
+              />
             </div>
           </div>
           <div class="agent-tag tag-plan">
@@ -89,6 +69,12 @@
           <div class="stage-label">ONE VISION. CONNECTED MINDS.</div>
         </div>
       </section>
+      <div id="project-list" class="section-head project-heading">
+        <h2>프로젝트</h2>
+        <span class="muted" id="count">0개 프로젝트</span>
+      </div>
+      <div id="projects"></div>
+      <section id="project-report" hidden aria-live="polite"></section>
       <p class="section-index">01 — CREATE</p>
       <form class="composer" id="form">
         <h2>새 프로젝트</h2>
@@ -143,11 +129,6 @@
         </div>
       </form>
       <div id="error" role="alert"></div>
-      <div id="project-list" class="section-head project-heading">
-        <h2>프로젝트</h2>
-        <span class="muted" id="count">0개 프로젝트</span>
-      </div>
-      <div id="projects"></div>
       <div class="room-toolbar">
         <a href="/">← 프로젝트 목록</a
         ><span class="room-kicker">PROJECT WORKSPACE</span
@@ -179,30 +160,33 @@
             ><button>프로젝트 설정 저장</button>
           </form>
         </details>
-        <div class="room-grid">
-          <section class="room-chat">
-            <div class="room-panel-title">우찬님과의 대화</div>
-            <div id="messages" aria-live="polite"></div>
-            <form id="chat-form">
-              <label for="chat-input">Codex와 기획 대화</label
-              ><textarea
+        <section class="group-room">
+          <div class="room-panel-title">
+            팀 채팅 <span>우찬님 · AI 팀</span>
+          </div>
+          <div id="current-work" role="status"></div>
+          <div id="team-feed" role="log" aria-label="팀 단체 채팅"></div>
+          <form id="chat-form">
+            <label for="chat-input">팀에 지시하기</label>
+            <div class="chat-compose">
+              <textarea
                 id="chat-input"
                 required
-                placeholder="아이디어나 수정할 내용을 이야기해주세요."
+                maxlength="4000"
+                placeholder="작업 중에도 의견이나 추가 지시를 남겨주세요."
               ></textarea
-              ><button class="primary">보내기</button>
-            </form>
-          </section>
-          <section class="room-collaboration">
-            <div class="room-panel-title">AI 협업 타임라인</div>
-            <div id="current-work" role="status"></div>
-            <div
-              id="team-feed"
-              role="log"
-              aria-label="AI 작업과 인수인계"
-            ></div>
-          </section>
-        </div>
+              ><button class="primary">보내기 ↗</button>
+            </div>
+            <p class="notice">
+              추가 지시는 다음 AI 요청에 전달됩니다. 진행 중인 응답은 완료 후
+              검토합니다.
+            </p>
+          </form>
+          <details class="past-chat">
+            <summary>이전 대화 기록</summary>
+            <div id="messages"></div>
+          </details>
+        </section>
         <div class="actions">
           <button data-action="/api/build">제작 · 컴파일</button
           ><button data-action="/api/compile">저장한 코드 재컴파일</button
@@ -421,7 +405,7 @@
         <span>WC OFFICE</span><span>PRIVATE CREATIVE WORKSPACE</span>
       </footer>
     </main>
-    <script src="/app.js" defer></script>
+    <script src="/app.js" type="module"></script>
     <script src="/motion.js" defer></script>
   </body>
 </html>

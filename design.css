@@ -3173,3 +3173,30 @@ aside nav .nav {
 .project-subnav a[aria-current="page"] {
   text-shadow: 0 0 15px #9bddff66;
 }
+
+.office-star-o {
+  position: relative;
+  display: inline-block;
+  font-style: normal;
+  color: #b9e8ff;
+}
+.office-star-o::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  width: 0.18em;
+  height: 0.18em;
+  transform: translate(-50%, -50%);
+  background: #e0f8ff;
+  clip-path: polygon(
+    50% 0,
+    62% 38%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 50%,
+    38% 38%
+  );
+}

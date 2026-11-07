@@ -1,4 +1,6 @@
 import { projectSummary } from "/project-summary.mjs";
+import { compareHistory, historyKey } from "/history-compare.mjs";
+const historySelections = new Map();
 const $ = (selector) => document.querySelector(selector);
 let reportId = null;
 let chatId = null;
@@ -742,6 +744,124 @@ function renderChat(project) {
   $("#current-work").classList.toggle("working", project.status === "작업 중");
 }
 
+function comparisonResultHtml(p, selection) {
+  const result = compareHistory(
+    p.repositoryHistory || [],
+    selection.from,
+    selection.to,
+  );
+  if (result.error)
+    return (
+      '<p class="comparison-hint" role="status">' +
+      escape(result.error) +
+      "</p>"
+    );
+  const snapshot = (label, entry) =>
+    '<div class="comparison-snapshot"><small>' +
+    label +
+    "</small><h4>" +
+    escape(entry.stage || "진행 상태") +
+    "</h4><p>" +
+    escape(entry.summary || "저장된 요약 없음") +
+    "</p><code>" +
+    escape(entry.commit.slice(0, 8)) +
+    "</code></div>";
+  return (
+    '<div class="comparison-snapshots">' +
+    snapshot("시작 시점", result.before) +
+    snapshot("종료 시점", result.after) +
+    "</div>" +
+    '<div class="comparison-changes"><h4>기간 중 변경 내용 <span>' +
+    result.count +
+    "회 갱신</span></h4>" +
+    (result.changes.length
+      ? "<ul>" +
+        result.changes.map((item) => "<li>" + escape(item) + "</li>").join("") +
+        "</ul>"
+      : "<p>이 구간에 저장된 변경 요약이 없습니다. 위의 두 시점 요약을 참고해주세요.</p>") +
+    (result.incomplete
+      ? '<p class="comparison-hint">일부 기록의 커밋 비교가 없어 변경 내역이 완전하지 않을 수 있습니다.</p>'
+      : "") +
+    '<p class="comparison-hint">저장된 변경 기록을 모아 보여줍니다. 중간에 추가 후 취소된 내용도 포함될 수 있습니다.</p>' +
+    (result.compareUrl
+      ? '<a class="comparison-link" href="' +
+        escape(result.compareUrl) +
+        '" target="_blank" rel="noopener noreferrer">GitHub에서 실제 코드 차이 보기 ↗</a>'
+      : "") +
+    "</div>"
+  );
+}
+
+function historyComparisonHtml(p) {
+  const entries = [...(p.repositoryHistory || [])].sort(
+    (a, b) => new Date(a.checkedAt) - new Date(b.checkedAt),
+  );
+  if (entries.length < 2)
+    return '<div class="history-comparison"><h4>날짜별 비교</h4><p class="comparison-hint">기록이 2개 이상 쌓이면 두 날짜를 선택해 비교할 수 있습니다.</p></div>';
+  const selection = historySelections.get(p.id) || {
+    from: historyKey(entries[0]),
+    to: historyKey(entries.at(-1)),
+  };
+  const selector = (label, side) =>
+    "<label>" +
+    label +
+    '<select data-compare-side="' +
+    side +
+    '">' +
+    entries
+      .map(
+        (entry) =>
+          '<option value="' +
+          escape(historyKey(entry)) +
+          '" ' +
+          (selection[side] === historyKey(entry) ? "selected" : "") +
+          ">" +
+          escape(
+            new Date(entry.checkedAt).toLocaleString("ko-KR", {
+              timeZone: "Asia/Seoul",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          ) +
+          " · " +
+          escape(entry.commit.slice(0, 7)) +
+          "</option>",
+      )
+      .join("") +
+    "</select></label>";
+  return (
+    '<section class="history-comparison" data-compare-project="' +
+    escape(p.id) +
+    '"><div class="comparison-heading"><h4>날짜별 비교</h4><span>두 시점 사이의 변화</span></div><div class="comparison-selectors">' +
+    selector("시작 날짜", "from") +
+    selector("종료 날짜", "to") +
+    '</div><div class="comparison-result" aria-live="polite">' +
+    comparisonResultHtml(p, selection) +
+    "</div></section>"
+  );
+}
+
+$("#projects").addEventListener("change", (event) => {
+  if (!event.target.matches("[data-compare-side]")) return;
+  const panel = event.target.closest("[data-compare-project]");
+  const p = projects.find(
+    (project) => project.id === panel.dataset.compareProject,
+  );
+  if (!p) return;
+  const selection = {
+    from: panel.querySelector('[data-compare-side="from"]').value,
+    to: panel.querySelector('[data-compare-side="to"]').value,
+  };
+  historySelections.set(p.id, selection);
+  panel.querySelector(".comparison-result").innerHTML = comparisonResultHtml(
+    p,
+    selection,
+  );
+});
+
 function repositoryHistoryHtml(p) {
   const entries = [...(p.repositoryHistory || [])].sort(
     (a, b) => new Date(b.checkedAt) - new Date(a.checkedAt),
@@ -764,6 +884,7 @@ function repositoryHistoryHtml(p) {
     entries.length +
     "건</span></summary>" +
     '<p class="notice">갱신 확인일 기준 · 한국 시간</p>' +
+    historyComparisonHtml(p) +
     ([...groups]
       .map(
         ([date, items]) =>

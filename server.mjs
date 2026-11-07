@@ -342,6 +342,7 @@ const server = http.createServer(async (req, res) => {
           "/motion.js",
           "/design.css",
           "/project-summary.mjs",
+          "/history-compare.mjs",
         ].includes(req.url))
     ) {
       res.writeHead(200, {

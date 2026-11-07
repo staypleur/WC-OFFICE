@@ -2038,3 +2038,149 @@ aside .owner {
 .history-entry ul {
   padding-left: 18px;
 }
+.history-comparison {
+  margin: 18px 0 24px;
+  padding: clamp(16px, 2.5vw, 26px);
+  border: 1px solid #70bdf34d;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at top right, #194f7444, transparent 65%), #0a1422;
+  box-shadow:
+    inset 0 1px #c6efff0d,
+    0 16px 36px #0002;
+}
+.comparison-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.comparison-heading h4,
+.history-comparison > h4 {
+  margin: 0;
+  color: #d7f0ff;
+  font-size: 16px;
+}
+.comparison-heading span {
+  font-size: 11px;
+  color: #79b5de;
+}
+.comparison-selectors,
+.comparison-snapshots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.comparison-selectors label {
+  min-width: 0;
+  font-size: 12px;
+  color: #a2c5e1;
+}
+.comparison-selectors select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #14263a;
+  border: 1px solid #416382;
+  color: #e4f5ff;
+  font: inherit;
+}
+.comparison-selectors select:focus-visible {
+  outline: 2px solid #79d5ff;
+  outline-offset: 3px;
+}
+.comparison-snapshots {
+  margin-top: 22px;
+}
+.comparison-snapshot {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 12px;
+  background: #ffffff04;
+  border: 1px solid #ffffff0c;
+}
+.comparison-snapshot:last-child {
+  border-color: #68c4fc44;
+  background: #1c4a6d22;
+}
+.comparison-snapshot small {
+  color: #81b9de;
+  font-size: 11px;
+}
+.comparison-snapshot h4 {
+  margin: 10px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.comparison-snapshot p,
+.comparison-changes p,
+.comparison-changes li {
+  color: #adbed0;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.comparison-snapshot code {
+  color: #6386a6;
+  font-size: 11px;
+}
+.comparison-changes {
+  margin-top: 24px;
+  border-top: 1px solid #2d455a;
+  padding-top: 18px;
+}
+.comparison-changes h4 {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+.comparison-changes h4 span {
+  margin-left: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: #79d5ff14;
+  color: #8bc5ed;
+  font-size: 10px;
+  font-weight: 400;
+}
+.comparison-changes ul {
+  padding-left: 18px;
+}
+.comparison-changes li {
+  margin-bottom: 7px;
+}
+.comparison-hint,
+.comparison-changes .comparison-hint {
+  color: #839bb1;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.comparison-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: #8edcff;
+  font-size: 12px;
+  text-decoration: none;
+}
+.comparison-link:hover {
+  color: #e1f6ff;
+  text-decoration: underline;
+}
+.history-day > summary {
+  padding: 6px 0;
+  transition: color 0.2s;
+}
+.history-day > summary:hover {
+  color: #7dd6ff;
+}
+@media (max-width: 680px) {
+  .comparison-selectors,
+  .comparison-snapshots {
+    grid-template-columns: 1fr;
+  }
+  .comparison-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

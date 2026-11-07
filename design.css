@@ -3205,3 +3205,20 @@ aside nav .nav {
     38% 35%
   );
 }
+
+@keyframes title-star-glimmer {
+  0%,
+  100% {
+    opacity: 0.74;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.14);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .office-star-o::after {
+    animation: title-star-glimmer 6s ease-in-out infinite;
+  }
+}

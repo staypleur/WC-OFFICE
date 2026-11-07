@@ -774,6 +774,9 @@ function applyProjectNameSearch() {
   $("#collapse-projects").disabled = !matched;
 }
 function applyProjectSort() {
+  const favoriteOrder =
+    favoriteOrders.get("project-list:" + location.pathname) || [];
+  $("#reset-favorite-order").disabled = favoriteOrder.length === 0;
   const order =
     projectSortPreferences.get("project-list:" + location.pathname) || "recent";
   $("#project-sort").value = order;
@@ -810,7 +813,7 @@ function applyProjectSort() {
     order,
     direction,
     favorites,
-    favoriteOrders.get("project-list:" + location.pathname) || [],
+    favoriteOrder,
   );
   if (
     sorted.some(
@@ -820,6 +823,13 @@ function applyProjectSort() {
     for (const project of sorted) container.append(byId.get(project.id));
   }
 }
+$("#reset-favorite-order").onclick = () => {
+  favoriteOrders.set("project-list:" + location.pathname, []);
+  applyProjectSort();
+  $("#project-view-status").textContent =
+    "즐겨찾기 순서를 초기화했습니다. 현재 정렬 기준과 방향을 적용했습니다.";
+  saveViewPosition();
+};
 $("#project-sort").onchange = (event) => {
   projectSortPreferences.set(
     "project-list:" + location.pathname,

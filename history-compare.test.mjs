@@ -49,6 +49,23 @@ test("manual favorite order persists and overrides sorting only for favorites", 
     ),
     ["a", "b", "c", "d"],
   );
+  restored.set("active", []);
+  const resetOrder = createComparisonPreference(storage, "favoriteOrder").get(
+    "active",
+  );
+  assert.deepEqual(resetOrder, []);
+  assert.deepEqual(
+    sortProjects(projects, "name", "asc", new Set(ids), resetOrder).map(
+      (p) => p.id,
+    ),
+    ["a", "b", "c", "d"],
+  );
+  assert.deepEqual(
+    sortProjects(projects, "name", "desc", new Set(ids), resetOrder).map(
+      (p) => p.id,
+    ),
+    ["c", "b", "a", "d"],
+  );
 });
 
 test("favorites stay first in either direction and persist independently", () => {

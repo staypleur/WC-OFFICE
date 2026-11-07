@@ -2768,6 +2768,7 @@ aside .owner {
   color: #a8bfd3;
   background: transparent;
 }
+.project-type-filters #reset-favorite-order:disabled,
 .project-type-filters .project-filter-reset:disabled {
   opacity: 0.4;
   cursor: default;

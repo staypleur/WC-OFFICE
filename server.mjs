@@ -17,11 +17,23 @@ function save() {
   return writes;
 }
 for (const project of projects) {
+  for (const task of project.tasks) {
+    if (task.status === '완료') continue;
+    if (task.title === '기획서와 일정표 작성' && task.agent === 'Claude') {
+      task.agent = 'Codex';
+      task.provider = 'codex';
+    }
+    if (['코딩과 테스트', '완전한 단일 HTML 랜딩페이지 코드 작성. 실제 실행 테스트 여부를 명확히 표시'].includes(task.title) && task.agent === 'Codex') {
+      task.agent = 'Claude';
+      task.provider = 'claude';
+    }
+  }
   if (project.status === '작업 중') {
     project.status = '중단됨';
     for (const task of project.tasks) if (task.status === '진행 중') task.status = '대기';
   }
 }
+await save();
 async function execute(project) {
   if (active.has(project.id)) return;
   active.add(project.id);
@@ -79,7 +91,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.url === '/api/projects') {
       if (typeof body.goal !== 'string' || !body.goal.trim() || body.goal.length > 4000) return send(res, 400, { error: '목표를 1~4000자로 입력해주세요.' });
-      const project = { id: randomUUID(), goal: body.goal.trim(), createdAt: new Date().toISOString(), status: '연결 대기', tasks: [ ['Claude', '기획서와 일정표 작성'], ['v0', '화면 디자인'], ['Codex', '완전한 단일 HTML 랜딩페이지 코드 작성. 실제 실행 테스트 여부를 명확히 표시'], ['Gemini', '요구사항과 코드의 누락·오류를 독립 검토하고 미검증 항목 명시'] ].map(([agent, title]) => ({ agent, title, status: '대기' })), events: ['목표를 접수했습니다. AI 실행 연결이 준비되면 작업을 시작할 수 있습니다.'] };
+      const project = { id: randomUUID(), goal: body.goal.trim(), createdAt: new Date().toISOString(), status: '연결 대기', tasks: [ ['Codex', '기획서와 일정표 작성'], ['v0', '화면 디자인'], ['Claude', '완전한 단일 HTML 랜딩페이지 코드 작성. 실제 실행 테스트 여부를 명확히 표시'], ['Gemini', '요구사항과 코드의 누락·오류를 독립 검토하고 미검증 항목 명시'] ].map(([agent, title]) => ({ agent, title, status: '대기' })), events: ['목표를 접수했습니다. AI 실행 연결이 준비되면 작업을 시작할 수 있습니다.'] };
       projects.unshift(project); await save(); if (!active.size) void execute(project).catch(console.error); return send(res, 201, project);
     }
     return send(res, 404, { error: '요청을 찾을 수 없습니다.' });

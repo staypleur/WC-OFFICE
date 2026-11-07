@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process';
 
 export const roles = [
-  { id: 'claude', name: 'Claude', role: '기획 · 요구사항 · 일정', key: 'ANTHROPIC_API_KEY' },
+  { id: 'claude', name: 'Claude', role: '개발 · 코드 수정', key: 'ANTHROPIC_API_KEY' },
   { id: 'v0', name: 'v0', role: 'UI 디자인 · 화면 초안', key: 'V0_API_KEY' },
-  { id: 'codex', name: 'Codex', role: '구현 · 코드 수정' },
+  { id: 'codex', name: 'Codex', role: '기획 · 요구사항 · 일정' },
   { id: 'gemini', name: 'Gemini', role: '별도 품질 검토', key: 'GEMINI_API_KEY' },
   { id: 'perplexity', name: 'Perplexity', role: '출처 기반 조사', key: 'PERPLEXITY_API_KEY' },
 ];

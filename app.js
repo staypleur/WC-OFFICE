@@ -5,6 +5,7 @@ import {
   searchParts,
   createComparisonPreference,
   restoreHistorySelection,
+  sortProjects,
 } from "/history-compare.mjs";
 let comparisonStorage;
 try {
@@ -31,6 +32,10 @@ const projectNameQueries = createComparisonPreference(
 const projectTypePreferences = createComparisonPreference(
   comparisonStorage,
   "projectType",
+);
+const projectSortPreferences = createComparisonPreference(
+  comparisonStorage,
+  "projectSort",
 );
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
@@ -681,6 +686,7 @@ $("#projects").addEventListener(
   true,
 );
 function applyProjectNameSearch() {
+  applyProjectSort();
   const query = $("#project-name-query").value.trim();
   const type =
     projectTypePreferences.get("project-list:" + location.pathname) || "all";
@@ -732,6 +738,32 @@ function applyProjectNameSearch() {
   $("#expand-projects").disabled = !matched;
   $("#collapse-projects").disabled = !matched;
 }
+function applyProjectSort() {
+  const order =
+    projectSortPreferences.get("project-list:" + location.pathname) || "recent";
+  $("#project-sort").value = order;
+  const container = $("#projects");
+  const cards = [...container.querySelectorAll(".project-accordion")];
+  const byId = new Map(cards.map((card) => [card.dataset.project, card]));
+  const sorted = sortProjects(
+    projects.filter((project) => byId.has(project.id)),
+    order,
+  );
+  if (
+    sorted.some(
+      (project, index) => cards[index]?.dataset.project !== project.id,
+    )
+  ) {
+    for (const project of sorted) container.append(byId.get(project.id));
+  }
+}
+$("#project-sort").onchange = (event) => {
+  projectSortPreferences.set(
+    "project-list:" + location.pathname,
+    event.target.value,
+  );
+  applyProjectSort();
+};
 $("#project-type-filters").onclick = (event) => {
   const button = event.target.closest("[data-project-type-filter]");
   if (!button) return;

@@ -81,6 +81,17 @@
       <div id="project-list" class="section-head project-heading">
         <h2>진행 프로젝트</h2>
         <span class="muted" id="count">0개 프로젝트</span>
+        <label class="project-sort-control"
+          ><span>정렬</span
+          ><select
+            id="project-sort"
+            aria-controls="projects"
+            title="최근 업데이트순: 진행 요약 갱신과 프로젝트 활동 기준"
+          >
+            <option value="recent">최근 업데이트순</option>
+            <option value="name">이름순</option>
+          </select></label
+        >
         <div
           class="project-view-controls"
           role="group"

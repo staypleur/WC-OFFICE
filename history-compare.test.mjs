@@ -7,10 +7,54 @@ import {
   searchParts,
   createComparisonPreference,
   restoreHistorySelection,
+  sortProjects,
 } from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("project sorting uses real activity or report updates, not unchanged checks", () => {
+  const projects = [
+    {
+      id: "a",
+      name: "Game 10",
+      createdAt: "2026-01-01",
+      repositorySync: { checkedAt: "2026-12-31" },
+    },
+    { id: "b", name: "Game 2", repositoryReport: { checkedAt: "2026-02-01" } },
+    {
+      id: "c",
+      name: "Alpha",
+      activity: [{ at: "invalid" }, { at: "2026-03-01" }],
+    },
+  ];
+  assert.deepEqual(
+    sortProjects(projects, "recent").map((p) => p.id),
+    ["c", "b", "a"],
+  );
+  assert.deepEqual(
+    sortProjects(projects, "name").map((p) => p.id),
+    ["c", "b", "a"],
+  );
+  assert.deepEqual(
+    projects.map((p) => p.id),
+    ["a", "b", "c"],
+  );
+  const data = new Map();
+  const storage = {
+    getItem: (k) => data.get(k),
+    setItem: (k, v) => data.set(k, v),
+  };
+  createComparisonPreference(storage, "projectSort").set("active", "name");
+  assert.equal(
+    createComparisonPreference(storage, "projectSort").get("active"),
+    "name",
+  );
+  assert.equal(
+    createComparisonPreference(storage, "projectSort").get("held"),
+    undefined,
+  );
+});
 
 test("project types persist independently for each list and reject invalid values", () => {
   const data = new Map();

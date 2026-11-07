@@ -5,6 +5,8 @@ export function historyKey(entry) {
 export function createComparisonPreference(storage, field) {
   const memory = new Map();
   const normalize = (value) => {
+    if (field === "projectSort")
+      return ["recent", "name"].includes(value) ? value : undefined;
     if (field === "projectType")
       return ["all", "unity", "web", "roblox"].includes(value)
         ? value
@@ -77,6 +79,35 @@ export function restoreHistorySelection(entries, saved) {
   if (saved && keys.includes(saved.from) && keys.includes(saved.to))
     return saved;
   return { from: keys[0], to: keys.at(-1) };
+}
+
+export function sortProjects(projects, order = "recent") {
+  const timestamp = (project) =>
+    [
+      project.updatedAt,
+      project.repositoryReport?.checkedAt,
+      project.createdAt,
+      ...(project.activity || []).map((event) => event.at),
+    ].reduce(
+      (latest, date) =>
+        Math.max(
+          latest,
+          Number.isFinite(Date.parse(date)) ? Date.parse(date) : 0,
+        ),
+      0,
+    );
+  const collator = new Intl.Collator("ko", {
+    numeric: true,
+    sensitivity: "base",
+  });
+  const byName = (a, b) =>
+    collator.compare(a.name || a.goal || "", b.name || b.goal || "") ||
+    String(a.id).localeCompare(String(b.id));
+  return [...projects].sort((a, b) =>
+    order === "name"
+      ? byName(a, b)
+      : timestamp(b) - timestamp(a) || byName(a, b),
+  );
 }
 
 export function searchParts(text, query) {

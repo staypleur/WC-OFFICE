@@ -2515,3 +2515,31 @@ aside .owner {
     padding: 8px 12px;
   }
 }
+.change-filter-toolbar {
+  flex-wrap: wrap;
+}
+.search-reset {
+  margin-left: auto;
+  border: 1px solid #49617a;
+  border-radius: 9px;
+  padding: 8px 12px;
+  color: #c0d7ec;
+  background: #152337;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+.search-reset:hover:not(:disabled) {
+  background: #23425f;
+  border-color: #83c7ee;
+}
+.search-reset:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.search-reset:focus-visible {
+  outline: 2px solid #a7e4ff;
+  outline-offset: 3px;
+}

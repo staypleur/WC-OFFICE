@@ -529,10 +529,21 @@ $("#projects").addEventListener(
   true,
 );
 $("#projects").onclick = async (event) => {
-  const clearSearch = event.target.closest("[data-search-clear]");
+  const clearSearch = event.target.closest(
+    "[data-search-clear], [data-search-reset]",
+  );
   if (clearSearch) {
     const panel = clearSearch.closest("[data-compare-project]");
     comparisonQueries.set(panel.dataset.compareProject, "");
+    if (clearSearch.hasAttribute("data-search-reset")) {
+      comparisonFilters.set(panel.dataset.compareProject, "all");
+      panel.querySelectorAll("[data-change-filter]").forEach((button) => {
+        button.setAttribute(
+          "aria-pressed",
+          String(button.dataset.changeFilter === "all"),
+        );
+      });
+    }
     const input = panel.querySelector("[data-change-search]");
     input.value = "";
     applyChangeSearch(panel);
@@ -805,6 +816,7 @@ function applyChangeSearch(panel) {
     panel.querySelector('[data-change-filter][aria-pressed="true"]')?.dataset
       .changeFilter || "all";
   let count = 0;
+  const counts = { added: 0, modified: 0, removed: 0, other: 0 };
   panel.querySelectorAll("[data-change-group]").forEach((group) => {
     let matched = 0;
     group.querySelectorAll("[data-change-text]").forEach((item) => {
@@ -819,9 +831,13 @@ function applyChangeSearch(panel) {
         .join("");
       if (!item.hidden) matched++;
     });
+    counts[group.dataset.changeGroup] = matched;
     group.hidden =
       !matched || (filter !== "all" && filter !== group.dataset.changeGroup);
     if (!group.hidden) count += matched;
+  });
+  panel.querySelectorAll("[data-change-count]").forEach((node) => {
+    node.textContent = counts[node.dataset.changeCount] || 0;
   });
   const labels = {
     all: "전체",
@@ -838,6 +854,8 @@ function applyChangeSearch(panel) {
     ? "검색어와 선택한 필터에 맞는 변경 내용이 없습니다."
     : "선택한 종류의 변경 내용이 없습니다.";
   panel.querySelector("[data-search-clear]").disabled = !query.length;
+  panel.querySelector("[data-search-reset]").disabled =
+    !query.length && filter === "all";
 }
 
 $("#projects").addEventListener("input", (event) => {
@@ -909,9 +927,11 @@ function comparisonResultHtml(p, selection) {
           category.icon +
           "</b> " +
           category.short +
-          "</span><strong>" +
+          '</span><strong><span data-change-count="' +
+          category.type +
+          '">' +
           groupItems(category).length +
-          "<small>건</small></strong></button>",
+          "</span><small>건</small></strong></button>",
       )
       .join("") +
     "</div>";
@@ -967,7 +987,7 @@ function comparisonResultHtml(p, selection) {
     filterLabel +
     " · " +
     shownCount +
-    "건 표시</span></div>" +
+    '건 표시</span><button type="button" class="search-reset" data-search-reset title="검색어와 종류 필터 초기화">전체 초기화</button></div>' +
     stats +
     '<p class="filter-empty" ' +
     (shownCount ? "hidden" : "") +

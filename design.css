@@ -2773,14 +2773,24 @@ aside .owner {
   color: #a8bfd3;
   background: transparent;
 }
+#undo-read-updates[hidden],
 #undo-favorite-order[hidden] {
   display: none;
 }
+#read-updates-status {
+  color: #a8d9f0;
+  font-size: 12px;
+}
+#read-updates-status:empty {
+  display: none;
+}
+.project-type-filters #undo-read-updates,
 .project-type-filters #undo-favorite-order {
   color: #b8eaff;
   border-color: #56b6df;
   background: #163c56;
 }
+.project-type-filters #read-visible-updates:disabled,
 .project-type-filters #reset-favorite-order:disabled,
 .project-type-filters .project-filter-reset:disabled {
   opacity: 0.4;

@@ -9,6 +9,8 @@ import {
   moveFavoriteOrder,
   projectUpdateKey,
   hasNewProjectUpdate,
+  markProjectUpdatesRead,
+  undoProjectUpdatesRead,
 } from "/history-compare.mjs";
 let comparisonStorage;
 try {
@@ -55,6 +57,8 @@ const favoriteOrders = createComparisonPreference(
 let draggedFavorite = null;
 let favoriteOrderUndo = null;
 let favoriteOrderUndoTimer;
+let updateReadUndo = null;
+let updateReadUndoTimer;
 const $ = (selector) => document.querySelector(selector);
 const expansionPreferences = createComparisonPreference(
   comparisonStorage,
@@ -299,6 +303,7 @@ let selected =
 let eventStream;
 function routeProject(id, push = true) {
   clearFavoriteOrderUndo();
+  clearUpdateReadUndo();
   saveViewPosition();
   restoringPosition = true;
   const revision = ++positionRevision;
@@ -813,6 +818,7 @@ function applyProjectNameSearch() {
   $("#favorites-only-count").textContent = favoriteCount;
   $("#approval-only-count").textContent = approvalCount;
   $("#updates-only-count").textContent = updatesCount;
+  $("#read-visible-updates").disabled = updatesCount === 0;
   const filtered =
     !!query || type !== "all" || favoritesOnly || approvalOnly || updatesOnly;
   $("#count").textContent = filtered
@@ -882,6 +888,43 @@ function applyProjectSort() {
     for (const project of sorted) container.append(byId.get(project.id));
   }
 }
+function clearUpdateReadUndo() {
+  clearTimeout(updateReadUndoTimer);
+  updateReadUndo = null;
+  $("#undo-read-updates").hidden = true;
+  $("#read-updates-status").textContent = "";
+}
+$("#read-visible-updates").onclick = () => {
+  const visibleIds = new Set(
+    [
+      ...$("#projects").querySelectorAll(".project-accordion:not([hidden])"),
+    ].map((card) => card.dataset.project),
+  );
+  const snapshot = markProjectUpdatesRead(
+    projects.filter((project) => visibleIds.has(project.id)),
+    seenUpdates,
+  );
+  if (!snapshot.length) return;
+  clearUpdateReadUndo();
+  updateReadUndo = { snapshot, expiresAt: Date.now() + 10000 };
+  $("#undo-read-updates").hidden = false;
+  $("#read-updates-status").textContent = `${snapshot.length}개 확인 완료`;
+  updateReadUndoTimer = setTimeout(clearUpdateReadUndo, 10000);
+  applyProjectNameSearch();
+  $("#undo-read-updates").focus({ preventScroll: true });
+};
+$("#undo-read-updates").onclick = () => {
+  if (!updateReadUndo || Date.now() >= updateReadUndo.expiresAt) {
+    clearUpdateReadUndo();
+    return;
+  }
+  undoProjectUpdatesRead(updateReadUndo.snapshot, seenUpdates);
+  clearUpdateReadUndo();
+  applyProjectNameSearch();
+  $("#project-view-status").textContent =
+    "업데이트 확인 상태를 복원하고 저장했습니다.";
+  $("#updates-only").focus({ preventScroll: true });
+};
 function clearFavoriteOrderUndo() {
   clearTimeout(favoriteOrderUndoTimer);
   favoriteOrderUndo = null;
@@ -1090,6 +1133,7 @@ $("#projects").addEventListener("keydown", (event) => {
 $("#projects").onclick = async (event) => {
   const readUpdate = event.target.closest("[data-read-update]");
   if (readUpdate) {
+    clearUpdateReadUndo();
     const p = projects.find(
       (project) => project.id === readUpdate.dataset.readUpdate,
     );

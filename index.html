@@ -212,6 +212,29 @@
           </button>
           <button
             type="button"
+            id="read-visible-updates"
+            aria-controls="projects"
+            title="현재 검색·필터에 표시된 프로젝트의 새 업데이트만 확인 완료"
+            disabled
+          >
+            표시된 업데이트 확인 완료
+          </button>
+          <span
+            id="read-updates-status"
+            role="status"
+            aria-live="polite"
+          ></span>
+          <button
+            type="button"
+            id="undo-read-updates"
+            aria-controls="projects"
+            title="10초 이내에 누르면 일괄 확인 전 상태로 복원합니다"
+            hidden
+          >
+            ↶ 확인 실행 취소
+          </button>
+          <button
+            type="button"
             id="reset-favorite-order"
             aria-controls="projects"
             title="직접 정한 순서를 지우고 현재 정렬 기준과 방향을 적용합니다"

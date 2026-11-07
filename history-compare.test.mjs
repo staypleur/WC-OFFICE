@@ -11,10 +11,46 @@ import {
   moveFavoriteOrder,
   hasNewProjectUpdate,
   projectUpdateKey,
+  markProjectUpdatesRead,
+  undoProjectUpdatesRead,
 } from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("bulk read snapshots only supplied unread projects and undo restores persisted state", () => {
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  const prefs = createComparisonPreference(storage, "seenUpdate");
+  const make = (id) => ({
+    id,
+    repository: "repo",
+    repositoryReport: { commit: b, changeReport: { from: a } },
+  });
+  const visible = [make("first"), make("second"), make("read")];
+  const hidden = make("hidden");
+  prefs.set("second", "repo@" + a);
+  prefs.set("read", projectUpdateKey(visible[2]));
+  const snapshot = markProjectUpdatesRead(visible, prefs);
+  assert.equal(snapshot.length, 2);
+  assert.equal(hasNewProjectUpdate(hidden, prefs.get("hidden")), true);
+  assert.equal(hasNewProjectUpdate(visible[0], prefs.get("first")), false);
+  // A newer commit arriving during the undo window remains unread.
+  visible[0].repositoryReport.commit = c;
+  undoProjectUpdatesRead(snapshot, prefs);
+  const restored = createComparisonPreference(storage, "seenUpdate");
+  assert.equal(restored.get("first"), "");
+  assert.equal(restored.get("second"), "repo@" + a);
+  assert.equal(restored.get("read"), "repo@" + b);
+  assert.equal(hasNewProjectUpdate(visible[0], restored.get("first")), true);
+  const next = markProjectUpdatesRead(visible, prefs);
+  prefs.set("first", "repo@later");
+  undoProjectUpdatesRead(next, prefs);
+  assert.equal(prefs.get("first"), "repo@later");
+});
 
 test("new updates track unread commits independently of unchanged polls", () => {
   const project = {

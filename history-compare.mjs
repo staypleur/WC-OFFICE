@@ -102,6 +102,24 @@ export function hasNewProjectUpdate(project, seen) {
   return !!seen || !!project.repositoryReport.changeReport?.from;
 }
 
+export function markProjectUpdatesRead(projects, preferences) {
+  const snapshot = [];
+  for (const project of projects) {
+    const previous = preferences.get(project.id) || "";
+    if (!hasNewProjectUpdate(project, previous)) continue;
+    const applied = projectUpdateKey(project);
+    snapshot.push({ id: project.id, previous, applied });
+    preferences.set(project.id, applied);
+  }
+  return snapshot;
+}
+export function undoProjectUpdatesRead(snapshot, preferences) {
+  for (const entry of snapshot) {
+    if (preferences.get(entry.id) === entry.applied)
+      preferences.set(entry.id, entry.previous);
+  }
+}
+
 export function restoreHistorySelection(entries, saved) {
   if (entries.length < 2) return null;
   const keys = entries.map(historyKey);

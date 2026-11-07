@@ -2848,6 +2848,13 @@ aside .owner {
   border-color: #d5a64c;
   background-color: #49371b;
 }
+.project-type-filters #undo-read-updates:focus-visible,
+.project-type-filters #undo-favorite-order:focus-visible {
+  outline: 3px solid #fff0bf;
+  outline-offset: 3px;
+  border-color: #ffe2a3;
+  box-shadow: 0 0 0 6px #f5c75c24;
+}
 .project-type-filters .undo-expiring {
   opacity: 0;
   transform: translateY(-4px);

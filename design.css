@@ -2933,6 +2933,7 @@ body {
   --night-scene: url("/assets/backgrounds/moonlit-sky-hd.png");
 }
 .night-backdrop {
+  container-type: size;
   position: fixed;
   inset: -4%;
   z-index: -1;
@@ -2941,6 +2942,48 @@ body {
   background-image: linear-gradient(#02081826, #030b1980), var(--night-scene);
   background-size: cover;
   background-position: center;
+}
+.night-moon {
+  --scene-pixel: max(calc(100cqw / 1672), calc(100cqh / 941));
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 270.5 * var(--scene-pixel));
+  width: calc(160 * var(--scene-pixel));
+  height: calc(160 * var(--scene-pixel));
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  animation: moonlight-breathe 7s ease-in-out infinite alternate;
+}
+.night-moon-surface {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: var(--night-scene);
+  background-size: calc(1672 * var(--scene-pixel))
+    calc(941 * var(--scene-pixel));
+  background-position: calc(-756 * var(--scene-pixel))
+    calc(-120 * var(--scene-pixel));
+  mask-image: radial-gradient(circle, #000 64%, transparent 71%);
+  animation: moon-surface-turn 180s linear infinite;
+}
+@keyframes moon-surface-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes moonlight-breathe {
+  from {
+    filter: brightness(1);
+    box-shadow:
+      0 0 24px 5px #a0e7ff18,
+      0 0 70px 18px #7bcfff0c;
+  }
+  to {
+    filter: brightness(1.15);
+    box-shadow:
+      0 0 36px 9px #b0efff35,
+      0 0 110px 30px #7bcfff1c;
+  }
 }
 .night-clouds {
   position: absolute;
@@ -3034,10 +3077,81 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .night-moon,
+  .night-moon-surface,
   .night-clouds,
   .night-stars::before,
   .night-stars::after {
     animation: none;
     will-change: auto;
   }
+}
+
+/* Starlight accents, preserving the existing interface structure. */
+aside nav .nav::after {
+  left: 50%;
+  right: auto;
+  bottom: -5px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%);
+  clip-path: polygon(
+    50% 0,
+    62% 38%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 50%,
+    38% 38%
+  );
+  background: #d4f5ff;
+  box-shadow: none;
+}
+aside nav .nav {
+  text-shadow: 0 0 16px #91dfff80;
+}
+.project-identity small {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.project-identity small::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  background: #a7e5ff;
+  clip-path: polygon(
+    50% 0,
+    62% 38%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 50%,
+    38% 38%
+  );
+}
+.project-accordion {
+  background:
+    radial-gradient(circle at 92% 0%, #74cfff0c, transparent 30%),
+    linear-gradient(125deg, #122033, #0b1320);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.project-accordion:hover {
+  border-color: #69aed166;
+  box-shadow: 0 0 24px #73caff0b;
+}
+.project-accordion.is-favorite {
+  border-color: #72c4e67a;
+}
+.project-favorite[aria-pressed="true"] {
+  text-shadow: 0 0 12px #a6e8ffb0;
+  box-shadow: inset 0 0 12px #89daff15;
+}
+.project-subnav a[aria-current="page"] {
+  text-shadow: 0 0 15px #9bddff66;
 }

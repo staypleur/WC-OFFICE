@@ -1732,3 +1732,6 @@ aside .owner {
   color: #9addff;
   border-bottom-color: #7dd5ff;
 }
+.top {
+  justify-content: flex-end;
+}

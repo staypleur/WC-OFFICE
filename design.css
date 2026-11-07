@@ -1852,6 +1852,9 @@ aside .owner {
   padding: 0 24px 24px;
   border-top: 1px solid #ffffff0c;
 }
+[data-read-update][hidden] {
+  display: none;
+}
 .project-links {
   display: flex;
   align-items: center;
@@ -2752,7 +2755,8 @@ aside .owner {
 }
 [data-project-type-count],
 #favorites-only-count,
-#approval-only-count {
+#approval-only-count,
+#updates-only-count {
   display: inline-block;
   min-width: 18px;
   margin-left: 7px;

@@ -5,6 +5,10 @@ export function historyKey(entry) {
 export function createComparisonPreference(storage, field) {
   const memory = new Map();
   const normalize = (value) => {
+    if (field === "seenUpdate")
+      return typeof value === "string" && value.length < 1000
+        ? value
+        : undefined;
     if (field === "favoriteOrder")
       return Array.isArray(value) &&
         value.every((id) => typeof id === "string" && id.length < 400)
@@ -22,7 +26,8 @@ export function createComparisonPreference(storage, field) {
       field === "open" ||
       field === "favorite" ||
       field === "favoritesOnly" ||
-      field === "approvalOnly"
+      field === "approvalOnly" ||
+      field === "updatesOnly"
     )
       return typeof value === "boolean" ? value : undefined;
     if (
@@ -84,6 +89,17 @@ export function createComparisonPreference(storage, field) {
       }
     },
   };
+}
+
+export function projectUpdateKey(project) {
+  return project?.repositoryReport?.commit
+    ? `${project.repository || ""}@${project.repositoryReport.commit}`
+    : "";
+}
+export function hasNewProjectUpdate(project, seen) {
+  const key = projectUpdateKey(project);
+  if (!key || key === seen) return false;
+  return !!seen || !!project.repositoryReport.changeReport?.from;
 }
 
 export function restoreHistorySelection(entries, saved) {

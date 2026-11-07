@@ -7,6 +7,8 @@ import {
   restoreHistorySelection,
   sortProjects,
   moveFavoriteOrder,
+  projectUpdateKey,
+  hasNewProjectUpdate,
 } from "/history-compare.mjs";
 let comparisonStorage;
 try {
@@ -454,6 +456,9 @@ async function refresh() {
             escape(p.id) +
             '">작업실 입장 ↗</a>' +
             repoLink +
+            '<button type="button" data-read-update="' +
+            escape(p.id) +
+            '" hidden>업데이트 확인 완료</button>' +
             '<button type="button" data-hold="' +
             escape(p.id) +
             '" ' +
@@ -709,6 +714,11 @@ const favoritesOnlyPreferences = createComparisonPreference(
   comparisonStorage,
   "favoritesOnly",
 );
+const updatesOnlyPreferences = createComparisonPreference(
+  comparisonStorage,
+  "updatesOnly",
+);
+const seenUpdates = createComparisonPreference(comparisonStorage, "seenUpdate");
 const approvalOnlyPreferences = createComparisonPreference(
   comparisonStorage,
   "approvalOnly",
@@ -722,6 +732,9 @@ function applyProjectNameSearch() {
   const approvalOnly =
     approvalOnlyPreferences.get("project-list:" + location.pathname) === true;
   $("#approval-only").setAttribute("aria-pressed", String(approvalOnly));
+  const updatesOnly =
+    updatesOnlyPreferences.get("project-list:" + location.pathname) === true;
+  $("#updates-only").setAttribute("aria-pressed", String(updatesOnly));
   const type =
     projectTypePreferences.get("project-list:" + location.pathname) || "all";
   document
@@ -737,15 +750,20 @@ function applyProjectNameSearch() {
   let matched = 0;
   let favoriteCount = 0;
   let approvalCount = 0;
+  let updatesCount = 0;
   for (const card of cards) {
     const p = projects.find((project) => project.id === card.dataset.project);
     const parts = searchParts(p?.name || p?.goal || "", query);
     const matchesName = !query || parts.some((part) => part.match);
     const needsApproval = projectSummary(p || {}).ready;
     const matchesApproval = !approvalOnly || needsApproval;
+    const hasUpdate = hasNewProjectUpdate(p, seenUpdates.get(p?.id));
+    const matchesUpdate = !updatesOnly || hasUpdate;
+    card.querySelector("[data-read-update]").hidden = !hasUpdate;
     if (
       matchesName &&
       matchesApproval &&
+      matchesUpdate &&
       (type === "all" || p?.type === type) &&
       projectFavorites.get(p?.id) === true
     )
@@ -755,11 +773,20 @@ function applyProjectNameSearch() {
     if (
       matchesName &&
       matchesFavorite &&
+      matchesUpdate &&
       (type === "all" || p?.type === type) &&
       needsApproval
     )
       approvalCount++;
-    if (matchesName && matchesFavorite && matchesApproval) {
+    if (
+      matchesName &&
+      matchesFavorite &&
+      matchesApproval &&
+      (type === "all" || p?.type === type) &&
+      hasUpdate
+    )
+      updatesCount++;
+    if (matchesName && matchesFavorite && matchesApproval && matchesUpdate) {
       typeCounts.all++;
       if (["unity", "web", "roblox"].includes(p?.type)) typeCounts[p.type]++;
     }
@@ -767,6 +794,7 @@ function applyProjectNameSearch() {
       !matchesName ||
       !matchesFavorite ||
       !matchesApproval ||
+      !matchesUpdate ||
       (type !== "all" && p?.type !== type);
     card.querySelector(".project-identity strong").innerHTML = parts
       .map((part) =>
@@ -784,7 +812,9 @@ function applyProjectNameSearch() {
   });
   $("#favorites-only-count").textContent = favoriteCount;
   $("#approval-only-count").textContent = approvalCount;
-  const filtered = !!query || type !== "all" || favoritesOnly || approvalOnly;
+  $("#updates-only-count").textContent = updatesCount;
+  const filtered =
+    !!query || type !== "all" || favoritesOnly || approvalOnly || updatesOnly;
   $("#count").textContent = filtered
     ? `${matched} / ${cards.length}개`
     : `${cards.length}개`;
@@ -797,7 +827,8 @@ function applyProjectNameSearch() {
     !$("#project-name-query").value.length &&
     type === "all" &&
     !favoritesOnly &&
-    !approvalOnly;
+    !approvalOnly &&
+    !updatesOnly;
   $("#expand-projects").disabled = !matched;
   $("#collapse-projects").disabled = !matched;
 }
@@ -906,6 +937,11 @@ $("#project-sort-direction").onchange = (event) => {
   );
   applyProjectSort();
 };
+$("#updates-only").onclick = () => {
+  const key = "project-list:" + location.pathname;
+  updatesOnlyPreferences.set(key, !updatesOnlyPreferences.get(key));
+  applyProjectNameSearch();
+};
 $("#approval-only").onclick = () => {
   const key = "project-list:" + location.pathname;
   approvalOnlyPreferences.set(key, !approvalOnlyPreferences.get(key));
@@ -944,6 +980,7 @@ $("#reset-project-filters").onclick = () => {
   projectTypePreferences.set("project-list:" + location.pathname, "all");
   favoritesOnlyPreferences.set("project-list:" + location.pathname, false);
   approvalOnlyPreferences.set("project-list:" + location.pathname, false);
+  updatesOnlyPreferences.set("project-list:" + location.pathname, false);
   applyProjectNameSearch();
   $("#project-name-query").focus();
 };
@@ -1051,6 +1088,16 @@ $("#projects").addEventListener("keydown", (event) => {
   handle.focus({ preventScroll: true });
 });
 $("#projects").onclick = async (event) => {
+  const readUpdate = event.target.closest("[data-read-update]");
+  if (readUpdate) {
+    const p = projects.find(
+      (project) => project.id === readUpdate.dataset.readUpdate,
+    );
+    if (p) seenUpdates.set(p.id, projectUpdateKey(p));
+    applyProjectNameSearch();
+    $("#updates-only").focus({ preventScroll: true });
+    return;
+  }
   if (event.target.closest(".favorite-drag")) {
     event.preventDefault();
     return;

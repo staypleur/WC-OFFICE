@@ -9,10 +9,48 @@ import {
   restoreHistorySelection,
   sortProjects,
   moveFavoriteOrder,
+  hasNewProjectUpdate,
+  projectUpdateKey,
 } from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("new updates track unread commits independently of unchanged polls", () => {
+  const project = {
+    repository: "https://github.com/a/b",
+    repositoryReport: { commit: b, changeReport: { from: a } },
+    repositorySync: { noChanges: true },
+  };
+  assert.equal(hasNewProjectUpdate({}, undefined), false);
+  assert.equal(
+    hasNewProjectUpdate({ repositoryReport: { commit: a } }, undefined),
+    false,
+  );
+  assert.equal(hasNewProjectUpdate(project, undefined), true);
+  const data = new Map();
+  const storage = {
+    getItem: (key) => data.get(key),
+    setItem: (key, value) => data.set(key, value),
+  };
+  createComparisonPreference(storage, "seenUpdate").set(
+    "project",
+    projectUpdateKey(project),
+  );
+  createComparisonPreference(storage, "updatesOnly").set("active", true);
+  const seen = createComparisonPreference(storage, "seenUpdate").get("project");
+  assert.equal(hasNewProjectUpdate(project, seen), false);
+  assert.equal(
+    createComparisonPreference(storage, "updatesOnly").get("active"),
+    true,
+  );
+  assert.equal(
+    createComparisonPreference(storage, "updatesOnly").get("held"),
+    undefined,
+  );
+  project.repositoryReport.commit = c;
+  assert.equal(hasNewProjectUpdate(project, seen), true);
+});
 
 test("manual favorite order persists and overrides sorting only for favorites", () => {
   const projects = ["a", "b", "c", "d"].map((id) => ({ id, name: id }));

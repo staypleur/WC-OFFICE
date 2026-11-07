@@ -314,6 +314,16 @@ const server = http.createServer(async (req, res) => {
       });
       return res.end(svg);
     }
+    if (
+      req.method === "GET" &&
+      req.url === "/assets/backgrounds/moonlit-sky-hd.png"
+    ) {
+      res.writeHead(200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+      });
+      return res.end(await readFile("assets/backgrounds/moonlit-sky-hd.png"));
+    }
     if (req.method === "GET" && req.url === "/assets/fonts/SpaceGrotesk.ttf") {
       res.writeHead(200, {
         "Content-Type": "font/ttf",

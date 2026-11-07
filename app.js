@@ -195,6 +195,7 @@ function setPageVisibility(id) {
     ],
     ["#deleted-projects", ["/projects/deleted"]],
     ["#marketing-page", ["/marketing"]],
+    ["#system-page", ["/system"]],
     ["#form", ["/new"]],
     ["#ai-team", ["/team", "/settings"]],
     [".room-toolbar,#workspace", ["room"]],
@@ -423,7 +424,7 @@ document.addEventListener("click", (event) => {
   if (
     url.origin !== location.origin ||
     url.search ||
-    !/^\/$|^\/(team|settings|marketing|new|projects)$|^\/projects\/(active|held|deleted|[a-f0-9-]+)$/.test(
+    !/^\/$|^\/(team|settings|marketing|system|new|projects)$|^\/projects\/(active|held|deleted|[a-f0-9-]+)$/.test(
       url.pathname,
     )
   )
@@ -488,7 +489,7 @@ async function refresh() {
     projects
       .map(
         (p) =>
-          `<button data-marketing="${escape(p.id)}"><strong>${escape(p.name || p.goal)}</strong><span>홍보 기획 대화 ↗</span></button>`,
+          `<button data-marketing="${escape(p.id)}"><strong>${escape(p.name || p.goal)}</strong></button>`,
       )
       .join("") || '<p class="notice">새 프로젝트를 먼저 만들어주세요.</p>';
   const openIds = new Set(
@@ -524,6 +525,8 @@ async function refresh() {
           return (
             '<details class="project-accordion" data-project="' +
             escape(p.id) +
+            '" data-project-kind="' +
+            escape(p.type || "unassigned") +
             '" ' +
             ((expansionPreferences.get("project:" + p.id) ?? openIds.has(p.id))
               ? "open"
@@ -712,8 +715,12 @@ async function config() {
   if (!$("#folder").value) $("#folder").value = data.defaultFolder;
   for (const [name, status] of Object.entries(data.connections)) {
     const node = document.getElementById(name);
-    if (node) node.textContent = status;
+    if (node) {
+      node.textContent = status;
+      node.dataset.connectionState = data.connectionStates?.[name] || "manual";
+    }
   }
+  window.dispatchEvent(new Event("office-connections-change"));
   const names = {
     ANTHROPIC_API_KEY: "Claude API 키",
     V0_API_KEY: "v0 API 키",
@@ -756,15 +763,6 @@ async function config() {
     });
   }
 }
-$("#marketing-projects").onclick = async (event) => {
-  const button = event.target.closest("[data-marketing]");
-  if (!button) return;
-  reportId = button.dataset.marketing;
-  await $("#chat-toggle").onclick();
-  $("#chat-input").value =
-    "이 프로젝트의 마케팅 목표와 대상 고객, 홍보 채널, 실행 계획을 함께 정리해줘.";
-  $("#chat-input").focus();
-};
 $("#form").onsubmit = async (event) => {
   event.preventDefault();
   error("");

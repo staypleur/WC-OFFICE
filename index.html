@@ -38,7 +38,8 @@
         <a class="nav" href="/" aria-current="page">메인</a
         ><a class="side-link" href="/projects">프로젝트</a
         ><a class="side-link" href="/team">AI</a
-        ><a class="side-link" href="/marketing">마케팅</a>
+        ><a class="side-link" href="/marketing">마케팅</a
+        ><a class="side-link" href="/system">시스템</a>
       </nav>
     </aside>
     <main>
@@ -108,6 +109,78 @@
           <div class="stage-label">ONE VISION. CONNECTED MINDS.</div>
         </div>
       </section>
+      <section id="system-page" class="route-hidden">
+        <div class="system-heading">
+          <h1>내 컴퓨터</h1>
+          <span id="system-status" role="status">연결 중…</span>
+        </div>
+        <div class="system-metrics">
+          <article class="system-metric" style="--metric-color: #83dfff">
+            <div class="system-metric-label">
+              CPU 사용량 <strong id="system-cpu">—</strong>
+            </div>
+            <progress
+              id="system-cpu-bar"
+              max="100"
+              value="0"
+              aria-label="CPU 사용량"
+            ></progress>
+            <svg
+              viewBox="0 0 300 80"
+              role="img"
+              aria-label="최근 CPU 사용량 추이"
+            >
+              <polyline id="system-cpu-chart" points="" />
+            </svg>
+            <small>최근 3분 · 전체 논리 프로세서 기준</small>
+          </article>
+          <article class="system-metric" style="--metric-color: #6ae6c1">
+            <div class="system-metric-label">
+              메모리 사용량 <strong id="system-memory">—</strong>
+            </div>
+            <progress
+              id="system-memory-bar"
+              max="100"
+              value="0"
+              aria-label="메모리 사용량"
+            ></progress>
+            <svg
+              viewBox="0 0 300 80"
+              role="img"
+              aria-label="최근 메모리 사용량 추이"
+            >
+              <polyline id="system-memory-chart" points="" />
+            </svg>
+            <small id="system-memory-detail">메모리 확인 중…</small>
+          </article>
+        </div>
+        <dl class="system-specs">
+          <div>
+            <dt>프로세서</dt>
+            <dd id="system-model">—</dd>
+          </div>
+          <div>
+            <dt>논리 프로세서</dt>
+            <dd id="system-cores">—</dd>
+          </div>
+          <div>
+            <dt>메모리</dt>
+            <dd id="system-ram">—</dd>
+          </div>
+          <div>
+            <dt>운영체제</dt>
+            <dd id="system-os">—</dd>
+          </div>
+          <div>
+            <dt>시스템 가동 시간</dt>
+            <dd id="system-uptime">—</dd>
+          </div>
+        </dl>
+        <p class="notice">
+          이 화면을 보는 동안 3초마다 갱신합니다. 사용량 기록은 현재 화면
+          세션에만 보관합니다.
+        </p>
+      </section>
       <section id="project-hub">
         <h1>프로젝트</h1>
         <nav class="project-subnav" aria-label="프로젝트 하위 메뉴">
@@ -119,10 +192,32 @@
       </section>
       <section id="marketing-page">
         <h1>마케팅</h1>
-        <p class="notice">
-          프로젝트를 선택해 메신저에서 홍보 기획을 시작하세요.
-        </p>
+        <p class="notice">프로젝트를 선택해 마케팅 대화를 시작하세요.</p>
         <div id="marketing-projects" class="hub-actions"></div>
+        <section id="marketing-room" hidden>
+          <div class="marketing-room-heading">
+            <h2 id="marketing-title"></h2>
+            <span id="marketing-status" role="status"></span>
+          </div>
+          <div
+            id="marketing-messages"
+            role="log"
+            aria-label="마케팅 대화"
+          ></div>
+          <form id="marketing-form">
+            <label for="marketing-input" class="visually-hidden"
+              >마케팅 메시지</label
+            >
+            <textarea
+              id="marketing-input"
+              maxlength="4000"
+              required
+              placeholder="마케팅 목표나 아이디어를 입력하세요"
+            ></textarea>
+            <button type="submit">보내기</button>
+          </form>
+          <p id="marketing-error" role="alert"></p>
+        </section>
       </section>
       <div id="project-list" class="section-head project-heading">
         <h2>진행 프로젝트</h2>
@@ -733,5 +828,7 @@
     </dialog>
     <script src="/app.js" type="module"></script>
     <script src="/motion.js" defer></script>
+    <script src="/system-monitor.js" defer></script>
+    <script src="/marketing.js" defer></script>
   </body>
 </html>

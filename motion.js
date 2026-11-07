@@ -195,6 +195,7 @@ function scheduleAIRotation(delay = 8000) {
         card.querySelector("small").textContent =
           aiRoles[ai.id] || "AI WORKSPACE";
       });
+      updateFloatingConnections();
       if (!reducedMotion.matches) await fadeAIContents(0, 1, 480);
     }
     if (revision === rotationRevision)
@@ -208,3 +209,16 @@ reducedMotion.addEventListener("change", () => scheduleAIRotation());
 scheduleAIRotation();
 
 window.addEventListener("office-route-change", () => scheduleAIRotation());
+
+function updateFloatingConnections() {
+  floatingCards.forEach((card) => {
+    const id = card.getAttribute("href").split("#connect-")[1];
+    const source = document.getElementById(id);
+    const symbol = card.querySelector(".agent-symbol");
+    symbol.dataset.connectionState =
+      source?.dataset.connectionState || "manual";
+    card.title = source?.textContent || "연결 확인 중";
+  });
+}
+window.addEventListener("office-connections-change", updateFloatingConnections);
+updateFloatingConnections();

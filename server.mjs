@@ -1,4 +1,7 @@
 import http from "node:http";
+import { systemSnapshot } from "./system-monitor.mjs";
+import { createMarketing } from "./marketing.mjs";
+import { codexLoginStatus, connectionState } from "./connection-status.mjs";
 import path from "node:path";
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -285,11 +288,32 @@ function send(res, status, data) {
   });
   res.end(JSON.stringify(data));
 }
+let marketingWrites = Promise.resolve();
+const marketing = createMarketing({
+  projects,
+  conversations: await load("data/marketing.json", {}),
+  runProvider,
+  persist: (conversations) => {
+    const snapshot = JSON.stringify(conversations, null, 2);
+    marketingWrites = marketingWrites
+      .catch(() => {})
+      .then(async () => {
+        await writeFile("data/marketing.tmp", snapshot);
+        await rename("data/marketing.tmp", "data/marketing.json");
+      });
+    return marketingWrites;
+  },
+});
 const server = http.createServer(async (req, res) => {
   try {
     if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
       return send(res, 403, { error: "허용되지 않은 주소입니다." });
     const streamMatch = /^\/api\/projects\/([a-f0-9-]+)\/events$/.exec(req.url);
+    const marketingMatch = /^\/api\/marketing\/([a-f0-9-]+)$/.exec(req.url);
+    if (req.method === "GET" && marketingMatch) {
+      res.setHeader("Cache-Control", "no-store");
+      return send(res, 200, marketing.snapshot(marketingMatch[1]));
+    }
     if (req.method === "GET" && streamMatch) {
       const p = projects.find((project) => project.id === streamMatch[1]);
       if (!p || p.deletedAt)
@@ -351,6 +375,7 @@ const server = http.createServer(async (req, res) => {
         "/team",
         "/settings",
         "/marketing",
+        "/system",
       ].includes(req.url);
     if (
       req.method === "GET" &&
@@ -359,6 +384,8 @@ const server = http.createServer(async (req, res) => {
           "/",
           "/app.js",
           "/motion.js",
+          "/system-monitor.js",
+          "/marketing.js",
           "/design.css",
           "/project-summary.mjs",
           "/history-compare.mjs",
@@ -395,7 +422,37 @@ const server = http.createServer(async (req, res) => {
           .filter((p) => p.deletedAt)
           .map((p) => ({ id: p.id, name: p.name, deletedAt: p.deletedAt })),
       );
-    if (req.method === "GET" && req.url === "/api/config")
+    if (req.method === "GET" && req.url === "/api/system") {
+      res.setHeader("Cache-Control", "no-store");
+      return send(res, 200, systemSnapshot());
+    }
+    if (req.method === "GET" && req.url === "/api/config") {
+      const codexLoggedIn = await codexLoginStatus();
+      const connections = Object.fromEntries(
+        [
+          ...roles,
+          { id: "cursor", key: "CURSOR_API_KEY" },
+          { id: "notion", key: "NOTION_TOKEN" },
+          { id: "stability", key: "STABILITY_API_KEY" },
+          { id: "meshy", key: "MESHY_API_KEY" },
+        ].map((r) => [
+          r.id,
+          verified.has(r.id)
+            ? "응답 확인됨"
+            : r.id === "codex"
+              ? codexLoggedIn
+                ? "로그인 확인됨"
+                : "로그인 필요"
+              : r.key && process.env[r.key]
+                ? "키 설정됨 · 연결 확인 필요"
+                : "연결 필요",
+        ]),
+      );
+      Object.assign(connections, {
+        midjourney: "수동 사용",
+        copilot: "수동 사용",
+        tripo: "자동 연결 미지원",
+      });
       return send(res, 200, {
         defaultFolder: process.cwd(),
         unity: await findUnity(),
@@ -403,25 +460,15 @@ const server = http.createServer(async (req, res) => {
           key,
           configured: !!process.env[key],
         })),
-        connections: Object.fromEntries(
-          [
-            ...roles,
-            { id: "cursor", key: "CURSOR_API_KEY" },
-            { id: "notion", key: "NOTION_TOKEN" },
-            { id: "stability", key: "STABILITY_API_KEY" },
-            { id: "meshy", key: "MESHY_API_KEY" },
-          ].map((r) => [
-            r.id,
-            verified.has(r.id)
-              ? "응답 확인됨"
-              : r.key && process.env[r.key]
-                ? "키 설정됨"
-                : r.id === "codex"
-                  ? "로컬 로그인 사용"
-                  : "연결 필요",
+        connections,
+        connectionStates: Object.fromEntries(
+          Object.entries(connections).map(([id, status]) => [
+            id,
+            connectionState(id, status),
           ]),
         ),
       });
+    }
     if (
       req.method !== "POST" ||
       req.headers.origin !== `http://${req.headers.host}`
@@ -459,6 +506,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (req.url === "/api/check") {
+      verified.delete(body.provider);
       if (body.provider === "codex")
         await runProvider(
           "codex",
@@ -479,6 +527,10 @@ const server = http.createServer(async (req, res) => {
       else throw new Error("지원하지 않는 연결 검사입니다.");
       verified.add(body.provider);
       return send(res, 200, { message: "실제 응답 확인됨" });
+    }
+    if (req.url === "/api/marketing/chat") {
+      await marketing.send(body.id, body.message);
+      return send(res, 202, { ok: true });
     }
     if (req.url === "/api/projects") {
       const name = requireText(body.name, 80),

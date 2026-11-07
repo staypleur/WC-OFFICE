@@ -54,6 +54,7 @@ function save() {
   return writes;
 }
 for (const p of projects) {
+  if (p.type === "landing" || !p.type) p.type = "web";
   p.messages ||= [];
   p.events ||= [];
   p.tasks ||= [];
@@ -78,7 +79,7 @@ function requireText(value, max = 4000) {
   return value.trim();
 }
 function context(p) {
-  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "landing"}\n목표: ${p.goal}\n대화:\n${p.messages
+  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n대화:\n${p.messages
     .filter((m) => m.role !== "시스템")
     .slice(-12)
     .map((m) => m.role + ": " + m.text)
@@ -247,7 +248,7 @@ const server = http.createServer(async (req, res) => {
       const name = requireText(body.name, 80),
         goal = requireText(body.goal);
       if (
-        !["unity", "landing"].includes(body.type) ||
+        !["unity", "web", "roblox", "landing"].includes(body.type) ||
         !["claude", "codex"].includes(body.developer)
       )
         throw new Error("프로젝트 유형과 개발 담당을 선택해주세요.");
@@ -258,7 +259,7 @@ const server = http.createServer(async (req, res) => {
         name,
         goal,
         folder,
-        type: body.type,
+        type: body.type === "landing" ? "web" : body.type,
         developer: body.developer,
         repository: typeof body.repository === "string" ? body.repository : "",
         createdAt: new Date().toISOString(),
@@ -309,24 +310,65 @@ const server = http.createServer(async (req, res) => {
       job(p, "기획 대화", "Codex", async () =>
         runProvider(
           "codex",
-          `한국어 게임 총괄 기획자. 사용자의 대화에 답하고 목표를 개발 작업과 완료 기준으로 정리하라. 도구나 파일 접근 없이 답변만 작성.\n${context(p)}`,
+          `한국어 프로젝트 총괄 기획자. 프로젝트 유형(Unity, Web, Roblox)에 맞춰 사용자의 대화에 답하고 목표를 개발 작업과 완료 기준으로 정리하라. 도구나 파일 접근 없이 답변만 작성.\n${context(p)}`,
         ),
       );
     } else if (req.url === "/api/build") {
       job(
         p,
-        p.type === "unity" ? "게임 제작 · Unity 컴파일" : "랜딩페이지 제작",
+        p.type === "unity"
+          ? "게임 제작 · Unity 컴파일"
+          : p.type === "roblox"
+            ? "Roblox 제작"
+            : "Web 제작",
         p.developer === "codex" ? "Codex" : "Claude",
         async () => {
           if (p.type === "unity") return makeGame(p);
           if (!p.folder)
             throw new Error("폴더를 지정한 새 프로젝트를 만들어주세요.");
+          p.approved = false;
+          if (p.type === "roblox") {
+            const output = await runProvider(
+              p.developer || "claude",
+              'Roblox Studio용 게임을 Luau로 작성하라. 외부 에셋 없이 기본 Part를 생성하고 게임 규칙, 승패, 재시작을 구현. ServerScriptService의 Script에 넣을 단일 서버 스크립트와 설치·테스트 지침을 작성. JSON만 출력: {"code":"전체 Luau 코드","instructions":"한국어 설치와 테스트 방법"}. 실행 검증했다고 주장하지 말 것. ' +
+                context(p),
+            );
+            const result = JSON.parse(
+              output
+                .trim()
+                .replace(/^```(?:json)?\s*/, "")
+                .replace(/\s*```$/, ""),
+            );
+            if (
+              !result ||
+              typeof result.code !== "string" ||
+              !result.code.trim() ||
+              typeof result.instructions !== "string"
+            )
+              throw new Error("Roblox 코드 응답 형식을 확인해주세요.");
+            const folder = path.join(
+              p.folder,
+              "Roblox-" + Date.now() + "-" + randomUUID().slice(0, 6),
+            );
+            await mkdir(folder);
+            await writeFile(path.join(folder, "Game.server.luau"), result.code);
+            await writeFile(
+              path.join(folder, "설치안내.txt"),
+              result.instructions,
+            );
+            return (
+              "Roblox 코드와 설치 안내 저장 완료\n" +
+              folder +
+              "\nStudio에서 가져온 뒤 플레이 테스트가 필요합니다.\n" +
+              result.instructions
+            );
+          }
           const html = await runProvider(
             p.developer || "claude",
-            "외부 의존성 없는 완전한 단일 HTML 랜딩페이지 코드를 작성하세요. HTML만 답변하세요. " +
+            "목표에 맞는 Web 프로젝트의 완전한 단일 HTML 프로토타입을 작성하세요. CSS와 JavaScript를 포함하고 외부 의존성 없이 동작하게 하세요. HTML만 답변하세요. " +
               context(p),
           );
-          const file = path.join(p.folder, "landing-" + Date.now() + ".html");
+          const file = path.join(p.folder, "web-" + Date.now() + ".html");
           await writeFile(
             file,
             html
@@ -344,10 +386,18 @@ const server = http.createServer(async (req, res) => {
     } else if (req.url === "/api/approve") {
       if (
         active.has(p.id) ||
-        p.tasks.filter((t) => t.title === "게임 제작 · Unity 컴파일").at(-1)
-          ?.status !== "완료"
+        p.tasks
+          .filter((t) =>
+            [
+              "게임 제작 · Unity 컴파일",
+              "Web 제작",
+              "Roblox 제작",
+              "랜딩페이지 제작",
+            ].includes(t.title),
+          )
+          .at(-1)?.status !== "완료"
       )
-        throw new Error("최신 버전의 컴파일 통과 후 승인해주세요.");
+        throw new Error("최신 제작 작업 완료 후 결과를 확인하고 승인해주세요.");
       p.approved = true;
       p.status = "승인 완료";
       await save();
@@ -364,7 +414,7 @@ const server = http.createServer(async (req, res) => {
           throw new Error("기존 Cursor 작업 상태를 확인해주세요.");
         p.cursor = await launchCursor(
           p,
-          `${context(p)}\nUnity 게임 구현과 테스트 후 별도 브랜치의 PR로 제출하라. 로컬 생성 파일은 자동 업로드되지 않으므로 원격 저장소 기준으로 작업하라.`,
+          `${context(p)}\n명시된 프로젝트 유형에 맞게 구현하고 테스트 후 별도 브랜치의 PR로 제출하라. 로컬 생성 파일은 자동 업로드되지 않으므로 원격 저장소 기준으로 작업하라.`,
         );
         return `원격 작업 제출 완료. 로컬 폴더와 자동 병합되지 않습니다.\n${p.cursor.agent?.url || JSON.stringify(p.cursor)}`;
       });

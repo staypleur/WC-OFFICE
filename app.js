@@ -81,15 +81,29 @@ async function refresh() {
     .querySelectorAll("button")
     .forEach((button) => (button.disabled = busy));
   $("#open-unity").disabled = busy || !project.unityFolder;
+  $("#open-unity").hidden = project.type !== "unity";
+  $('#workspace [data-action="/api/compile"]').hidden =
+    project.type !== "unity";
   $('#workspace [data-action="/api/compile"]').disabled =
     busy || !project.unityFolder;
   $('#workspace [data-action="/api/approve"]').disabled =
     busy ||
     project.tasks
-      .filter((task) => task.title === "게임 제작 · Unity 컴파일")
+      .filter((task) =>
+        [
+          "게임 제작 · Unity 컴파일",
+          "Web 제작",
+          "Roblox 제작",
+          "랜딩페이지 제작",
+        ].includes(task.title),
+      )
       .at(-1)?.status !== "완료";
   $('#workspace [data-action="/api/build"]').textContent =
-    project.type === "unity" ? "제작 · 컴파일" : "랜딩페이지 제작";
+    project.type === "unity"
+      ? "Unity 제작 · 컴파일"
+      : project.type === "roblox"
+        ? "Roblox 코드 제작"
+        : "Web 제작";
 }
 async function config() {
   const data = await request("/api/config");

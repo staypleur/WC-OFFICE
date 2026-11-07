@@ -2,6 +2,26 @@ export function historyKey(entry) {
   return `${entry.repository}@${entry.commit}`;
 }
 
+export function searchParts(text, query) {
+  const term = query.trim();
+  if (!term) return [{ text, match: false }];
+  const pattern = new RegExp(
+    term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    "giu",
+  );
+  const parts = [];
+  let offset = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > offset)
+      parts.push({ text: text.slice(offset, match.index), match: false });
+    parts.push({ text: match[0], match: true });
+    offset = match.index + match[0].length;
+  }
+  if (offset < text.length)
+    parts.push({ text: text.slice(offset), match: false });
+  return parts;
+}
+
 export function classifyChange(text, explicitType) {
   if (["added", "modified", "removed", "other"].includes(explicitType))
     return explicitType;

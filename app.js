@@ -1,7 +1,8 @@
 import { projectSummary } from "/project-summary.mjs";
-import { compareHistory, historyKey } from "/history-compare.mjs";
+import { compareHistory, historyKey, searchParts } from "/history-compare.mjs";
 const historySelections = new Map();
 const comparisonFilters = new Map();
+const comparisonQueries = new Map();
 const $ = (selector) => document.querySelector(selector);
 let reportId = null;
 let chatId = null;
@@ -236,7 +237,10 @@ async function refresh() {
     ),
   );
   const listView = JSON.stringify(visibleProjects);
-  if ($("#projects").dataset.view !== listView) {
+  if (
+    $("#projects").dataset.view !== listView &&
+    !document.activeElement?.matches("[data-change-search]")
+  ) {
     const expandedHistory = new Set(
       [...document.querySelectorAll("[data-history-key][open]")].map(
         (node) => node.dataset.historyKey,
@@ -302,6 +306,9 @@ async function refresh() {
     document.querySelectorAll("[data-history-key]").forEach((node) => {
       node.open = expandedHistory.has(node.dataset.historyKey);
     });
+    document
+      .querySelectorAll("[data-compare-project]")
+      .forEach(applyChangeSearch);
   }
   const deleted = await request("/api/projects/deleted");
   $("#deleted-project-list").innerHTML =
@@ -522,6 +529,16 @@ $("#projects").addEventListener(
   true,
 );
 $("#projects").onclick = async (event) => {
+  const clearSearch = event.target.closest("[data-search-clear]");
+  if (clearSearch) {
+    const panel = clearSearch.closest("[data-compare-project]");
+    comparisonQueries.set(panel.dataset.compareProject, "");
+    const input = panel.querySelector("[data-change-search]");
+    input.value = "";
+    applyChangeSearch(panel);
+    input.focus();
+    return;
+  }
   const filterButton = event.target.closest("[data-change-filter]");
   if (filterButton) {
     const panel = filterButton.closest("[data-compare-project]");
@@ -535,17 +552,7 @@ $("#projects").onclick = async (event) => {
           String(button.dataset.changeFilter === filter),
         ),
       );
-    let count = 0;
-    panel.querySelectorAll("[data-change-group]").forEach((group) => {
-      group.hidden = filter !== "all" && group.dataset.changeGroup !== filter;
-      if (!group.hidden) count += group.querySelectorAll("li").length;
-    });
-    panel.querySelector(".filter-empty").hidden = count > 0;
-    panel.querySelector(".filter-status").textContent =
-      (filter === "all" ? "전체" : filterButton.dataset.filterLabel) +
-      " · " +
-      count +
-      "건 표시";
+    applyChangeSearch(panel);
     return;
   }
   const refreshButton = event.target.closest("[data-refresh-repository]");
@@ -790,6 +797,56 @@ function compactSummary(text, key) {
   );
 }
 
+function applyChangeSearch(panel) {
+  const input = panel.querySelector("[data-change-search]");
+  if (!input) return;
+  const query = comparisonQueries.get(panel.dataset.compareProject) || "";
+  const filter =
+    panel.querySelector('[data-change-filter][aria-pressed="true"]')?.dataset
+      .changeFilter || "all";
+  let count = 0;
+  panel.querySelectorAll("[data-change-group]").forEach((group) => {
+    let matched = 0;
+    group.querySelectorAll("[data-change-text]").forEach((item) => {
+      const parts = searchParts(item.dataset.changeText, query);
+      item.hidden = !!query.trim() && !parts.some((part) => part.match);
+      item.innerHTML = parts
+        .map((part) =>
+          part.match
+            ? '<mark class="search-match">' + escape(part.text) + "</mark>"
+            : escape(part.text),
+        )
+        .join("");
+      if (!item.hidden) matched++;
+    });
+    group.hidden =
+      !matched || (filter !== "all" && filter !== group.dataset.changeGroup);
+    if (!group.hidden) count += matched;
+  });
+  const labels = {
+    all: "전체",
+    added: "추가",
+    modified: "수정",
+    removed: "삭제",
+    other: "기타",
+  };
+  panel.querySelector(".filter-status").textContent =
+    labels[filter] + " · " + count + (query.trim() ? "건 검색됨" : "건 표시");
+  const empty = panel.querySelector(".filter-empty");
+  empty.hidden = count > 0;
+  empty.textContent = query.trim()
+    ? "검색어와 선택한 필터에 맞는 변경 내용이 없습니다."
+    : "선택한 종류의 변경 내용이 없습니다.";
+  panel.querySelector("[data-search-clear]").disabled = !query.length;
+}
+
+$("#projects").addEventListener("input", (event) => {
+  if (!event.target.matches("[data-change-search]")) return;
+  const panel = event.target.closest("[data-compare-project]");
+  comparisonQueries.set(panel.dataset.compareProject, event.target.value);
+  applyChangeSearch(panel);
+});
+
 function comparisonResultHtml(p, selection) {
   const result = compareHistory(
     p.repositoryHistory || [],
@@ -880,7 +937,14 @@ function comparisonResultHtml(p, selection) {
           category.label +
           "</h5><ul>" +
           groupItems(category)
-            .map((item) => "<li>" + escape(item.text) + "</li>")
+            .map(
+              (item) =>
+                '<li data-change-text="' +
+                escape(item.text) +
+                '">' +
+                escape(item.text) +
+                "</li>",
+            )
             .join("") +
           "</ul></section>",
       )
@@ -894,6 +958,9 @@ function comparisonResultHtml(p, selection) {
     '<div class="comparison-changes"><h4>기간 중 변경 내용 <span>' +
     result.count +
     "회 갱신</span></h4>" +
+    '<div class="change-search"><label><span>변경 내용 검색</span><input type="search" data-change-search maxlength="200" placeholder="검색어 입력 · 예: 로그인, 화면, 저장" value="' +
+    escape(comparisonQueries.get(p.id) || "") +
+    '"></label><button type="button" data-search-clear>검색 지우기</button></div>' +
     '<div class="change-filter-toolbar"><button type="button" class="filter-all" data-change-filter="all" aria-pressed="' +
     (activeFilter === "all") +
     '">전체 보기</button><span class="filter-status" role="status">' +
@@ -989,6 +1056,7 @@ $("#projects").addEventListener("change", (event) => {
     p,
     selection,
   );
+  applyChangeSearch(panel);
 });
 
 function repositoryHistoryHtml(p) {

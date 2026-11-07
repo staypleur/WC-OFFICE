@@ -4,10 +4,37 @@ import {
   compareHistory,
   historyKey,
   classifyChange,
+  searchParts,
 } from "./history-compare.mjs";
 const a = "a".repeat(40),
   b = "b".repeat(40),
   c = "c".repeat(40);
+
+test("search finds all literal matches without changing the original text", () => {
+  const text = "GitHub 저장 / github 저장";
+  const parts = searchParts(text, " github ");
+  assert.equal(parts.filter((part) => part.match).length, 2);
+  assert.equal(parts.map((part) => part.text).join(""), text);
+  assert.equal(
+    searchParts(text, "저장").filter((part) => part.match).length,
+    2,
+  );
+  assert.equal(
+    searchParts(text, "없는 내용").some((part) => part.match),
+    false,
+  );
+});
+
+test("search treats regex and HTML characters as plain text", () => {
+  for (const query of ["[a]", "a+b", ".*", "<script>", "\\", "("]) {
+    const parts = searchParts("앞 " + query + " 뒤", query);
+    assert.deepEqual(
+      parts.filter((part) => part.match).map((part) => part.text),
+      [query],
+    );
+  }
+  assert.deepEqual(searchParts("원문", "  "), [{ text: "원문", match: false }]);
+});
 
 test("classifies only clear legacy actions and respects explicit source types", () => {
   assert.equal(classifyChange("삭제 버튼을 추가했습니다."), "added");

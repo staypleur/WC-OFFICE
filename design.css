@@ -3179,24 +3179,29 @@ aside nav .nav {
   display: inline-block;
   font-style: normal;
   color: #b9e8ff;
+  width: 0.72em;
+  height: 0.72em;
+  vertical-align: -0.015em;
 }
 .office-star-o::after {
   content: "";
   position: absolute;
   left: 50%;
-  top: 53%;
-  width: 0.18em;
-  height: 0.18em;
+  top: 50%;
+  width: 0.7em;
+  height: 0.7em;
   transform: translate(-50%, -50%);
   background: #e0f8ff;
   clip-path: polygon(
     50% 0,
-    62% 38%,
-    100% 50%,
-    62% 62%,
-    50% 100%,
-    38% 62%,
-    0 50%,
-    38% 38%
+    62% 35%,
+    100% 38%,
+    71% 61%,
+    80% 100%,
+    50% 78%,
+    20% 100%,
+    29% 61%,
+    0 38%,
+    38% 35%
   );
 }

@@ -9,10 +9,11 @@ function setPageVisibility(id) {
   const page = id ? "room" : location.pathname;
   const groups = [
     [".hero", ["/"]],
-    ["#project-list,#projects,#project-report", ["/", "/projects"]],
+    ["#project-list,#projects,#project-report", ["/", "/projects/active"]],
+    ["#project-hub", ["/projects"]],
+    ["#marketing-page", ["/marketing"]],
     [".section-index,#form", ["/new"]],
-    ["#ai-team", ["/team"]],
-    ["#settings", ["/settings"]],
+    ["#ai-team", ["/team", "/settings"]],
     [".room-toolbar,#workspace", ["room"]],
   ];
   groups.forEach(([selector, pages]) =>
@@ -22,12 +23,14 @@ function setPageVisibility(id) {
         node.classList.toggle("route-hidden", !pages.includes(page)),
       ),
   );
-  if (page === "/team") $("#ai-team").open = true;
-  if (page === "/settings") $("#settings").open = true;
   document.querySelectorAll("aside nav a").forEach((link) => {
     const active =
       new URL(link.href).pathname ===
-      (page === "room" || page === "/" ? "/projects" : page);
+      (["room", "/", "/new", "/projects/active"].includes(page)
+        ? "/projects"
+        : page === "/settings"
+          ? "/team"
+          : page);
     link.classList.toggle("nav", active);
     link.classList.toggle("side-link", !active);
     if (active) link.setAttribute("aria-current", "page");
@@ -177,6 +180,13 @@ function error(message) {
 async function refresh() {
   projects = await request("/api/projects");
   $("#count").textContent = `${projects.length}개`;
+  $("#marketing-projects").innerHTML =
+    projects
+      .map(
+        (p) =>
+          `<button data-marketing="${escape(p.id)}"><strong>${escape(p.name || p.goal)}</strong><span>홍보 기획 대화 ↗</span></button>`,
+      )
+      .join("") || '<p class="notice">새 프로젝트를 먼저 만들어주세요.</p>';
   $("#projects").innerHTML =
     projects
       .map(
@@ -286,13 +296,46 @@ async function config() {
     STABILITY_API_KEY: "Stable Diffusion API 키",
     MESHY_API_KEY: "Meshy API 키",
   };
-  $("#settings-fields").innerHTML = data.settings
-    .map(
-      (field) =>
-        `<label>${escape(names[field.key])}<input name="${escape(field.key)}" type="password" autocomplete="off" placeholder="${field.configured ? "저장됨 · 변경할 때 입력" : "미설정"}"></label>`,
-    )
-    .join("");
+  const providers = {
+    ANTHROPIC_API_KEY: "claude",
+    V0_API_KEY: "v0",
+    GEMINI_API_KEY: "gemini",
+    PERPLEXITY_API_KEY: "perplexity",
+    CURSOR_API_KEY: "cursor",
+    NOTION_TOKEN: "notion",
+    NOTION_PARENT_PAGE_ID: "notion",
+    STABILITY_API_KEY: "stability",
+    MESHY_API_KEY: "meshy",
+  };
+  for (const provider of new Set(Object.values(providers))) {
+    const fields = $(`[data-provider-fields="${provider}"]`);
+    const drafts = Object.fromEntries(
+      [...fields.querySelectorAll("input")].map((input) => [
+        input.name,
+        input.value,
+      ]),
+    );
+    fields.innerHTML = data.settings
+      .filter((field) => providers[field.key] === provider)
+      .map(
+        (field) =>
+          `<label>${escape(names[field.key])}<input form="settings-form" name="${escape(field.key)}" type="password" autocomplete="off" placeholder="${field.configured ? "저장됨 · 변경할 때 입력" : "미설정"}"></label>`,
+      )
+      .join("");
+    fields.querySelectorAll("input").forEach((input) => {
+      input.value = drafts[input.name] || "";
+    });
+  }
 }
+$("#marketing-projects").onclick = async (event) => {
+  const button = event.target.closest("[data-marketing]");
+  if (!button) return;
+  reportId = button.dataset.marketing;
+  await $("#chat-toggle").onclick();
+  $("#chat-input").value =
+    "이 프로젝트의 마케팅 목표와 대상 고객, 홍보 채널, 실행 계획을 함께 정리해줘.";
+  $("#chat-input").focus();
+};
 $("#form").onsubmit = async (event) => {
   event.preventDefault();
   error("");
@@ -385,13 +428,22 @@ $("#workspace").addEventListener("click", async (event) => {
 $("#settings-form").onsubmit = async (event) => {
   event.preventDefault();
   error("");
+  const inputs = [
+    ...(event.submitter?.closest(".ai-card") || document).querySelectorAll(
+      'input[form="settings-form"]',
+    ),
+  ];
   const values = Object.fromEntries(
-    [...new FormData(event.target)]
+    inputs
+      .map((input) => [input.name, input.value])
       .filter(([, value]) => value.trim())
       .map(([key, value]) => [key, value.trim()]),
   );
   try {
     await request("/api/settings", values);
+    inputs.forEach((input) => {
+      input.value = "";
+    });
     await config();
     $("#settings-status").textContent = "로컬 설정 저장 완료";
   } catch (e) {

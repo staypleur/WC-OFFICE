@@ -1,0 +1,3 @@
+Lobe Icons @lobehub/icons-static-svg 1.102.0
+https://github.com/lobehub/lobe-icons
+Logos belong to their respective brands.

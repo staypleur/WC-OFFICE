@@ -1576,3 +1576,128 @@ aside .owner {
     animation: none;
   }
 }
+#chat-toggle {
+  left: 0;
+  right: auto;
+  border: 1px solid #3f719e;
+  border-left: 0;
+  border-radius: 0 14px 14px 0;
+}
+#chat-sidebar {
+  inset: 0 auto 0 0;
+  border-left: 0;
+  border-right: 1px solid #365778;
+  box-shadow: 24px 0 80px #0008;
+}
+@keyframes chat-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+#project-hub,
+#marketing-page {
+  padding: 35px 0 70px;
+}
+#project-hub h1,
+#marketing-page h1,
+#ai-team h1 {
+  font-size: 34px;
+  letter-spacing: -1px;
+}
+.hub-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 36px;
+}
+.hub-actions a,
+.hub-actions button {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-height: 180px;
+  text-align: left;
+  padding: 32px;
+  border: 1px solid #2a4665;
+  border-radius: 18px;
+  color: #ecf6ff;
+  background: linear-gradient(135deg, #15283f, #0b1422);
+  text-decoration: none;
+  transition:
+    transform 0.2s,
+    border-color 0.2s;
+}
+.hub-actions a:hover,
+.hub-actions button:hover {
+  transform: translateY(-4px);
+  border-color: #88d9ff;
+}
+.hub-actions span {
+  color: #89bcdf;
+  font-size: 12px;
+}
+.hub-actions strong {
+  font-size: 23px;
+}
+.hub-actions b {
+  margin-left: auto;
+  font-size: 28px;
+  color: #87d6ff;
+}
+#ai-team {
+  padding-top: 35px;
+}
+.ai-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.ai-brand-logo {
+  display: block;
+  object-fit: contain;
+  box-sizing: content-box;
+  padding: 14px;
+  background: #fff;
+  border-radius: 18px;
+  margin: 24px 0 18px;
+}
+.ai-card .ai-connect {
+  width: 100%;
+  margin-top: 22px;
+  border-top: 1px solid #ffffff12;
+  padding-top: 16px;
+}
+.ai-connect summary {
+  color: #9cdbff;
+}
+.ai-connect input {
+  width: 100%;
+}
+.ai-connect button {
+  margin: 8px 8px 0 0;
+}
+.ai-connect .notice {
+  font-size: 12px;
+  line-height: 1.8;
+}
+#settings-status {
+  color: #9cdbff;
+}
+@media (max-width: 700px) {
+  .hub-actions {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .hub-actions a,
+  .hub-actions button {
+    min-height: 130px;
+    padding: 24px;
+  }
+  .hub-actions strong {
+    font-size: 20px;
+  }
+}

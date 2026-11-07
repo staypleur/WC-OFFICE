@@ -300,9 +300,27 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+    if (
+      req.method === "GET" &&
+      /^\/assets\/ai\/[a-z0-9-]+\.svg$/.test(req.url)
+    ) {
+      const svg = await readFile("." + req.url);
+      res.writeHead(200, {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "public, max-age=86400",
+      });
+      return res.end(svg);
+    }
     const projectPage =
       /^\/projects\/[a-f0-9-]+$/.test(req.url) ||
-      ["/new", "/projects", "/team", "/settings"].includes(req.url);
+      [
+        "/new",
+        "/projects",
+        "/projects/active",
+        "/team",
+        "/settings",
+        "/marketing",
+      ].includes(req.url);
     if (
       req.method === "GET" &&
       (projectPage ||

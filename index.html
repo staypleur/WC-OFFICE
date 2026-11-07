@@ -23,10 +23,9 @@
         />
       </a>
       <nav aria-label="주 메뉴">
-        <a class="nav" href="/new">새 프로젝트</a
-        ><a class="side-link" href="/projects">프로젝트</a
-        ><a class="side-link" href="/team">AI 팀</a
-        ><a class="side-link" href="/settings">연결 설정</a>
+        <a class="nav" href="/projects">프로젝트</a
+        ><a class="side-link" href="/team">AI</a
+        ><a class="side-link" href="/marketing">마케팅</a>
       </nav>
       <div class="owner"><b>W</b>우찬님의 작업실</div>
     </aside>
@@ -68,8 +67,24 @@
           <div class="stage-label">ONE VISION. CONNECTED MINDS.</div>
         </div>
       </section>
+      <section id="project-hub">
+        <h1>프로젝트</h1>
+        <div class="hub-actions">
+          <a href="/new"><span>01</span><strong>새 프로젝트</strong><b>↗</b></a
+          ><a href="/projects/active"
+            ><span>02</span><strong>진행 프로젝트</strong><b>↗</b></a
+          >
+        </div>
+      </section>
+      <section id="marketing-page">
+        <h1>마케팅</h1>
+        <p class="notice">
+          프로젝트를 선택해 메신저에서 홍보 기획을 시작하세요.
+        </p>
+        <div id="marketing-projects" class="hub-actions"></div>
+      </section>
       <div id="project-list" class="section-head project-heading">
-        <h2>프로젝트</h2>
+        <h2>진행 프로젝트</h2>
         <span class="muted" id="count">0개 프로젝트</span>
       </div>
       <div id="projects"></div>
@@ -195,90 +210,91 @@
           <div id="task-history"></div>
         </details>
       </section>
-      <details id="ai-team" class="team-directory">
-        <summary>AI 팀 · 11명</summary>
-        <div class="section-head team-heading"><h2>AI 팀</h2></div>
+      <section id="ai-team" class="team-directory">
+        <div class="section-head">
+          <h1>AI</h1>
+          <span class="muted">11개 서비스</span>
+        </div>
+        <form id="settings-form"></form>
+        <p id="settings-status" role="status"></p>
         <section class="team">
-          <div class="card">
+          <article class="card ai-card">
             <span class="connection" id="codex">연결 확인 중</span
-            ><span class="avatar">⌘</span><strong>Codex</strong>
-            <div class="role">총괄 기획</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                세계관, 코어 루프, 핵심 메커니즘, 레벨 디자인과 밸런스 패치
-                방향을 설계합니다.
-              </p>
-              <p class="prompt-example">
-                예시 요청 · 이 게임 장르에 맞는 독창적인 코어 루프를 3가지
-                제안하고 개발 업무로 나눠줘.
-              </p>
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/codex-color.svg"
+              alt="Codex 로고"
+              width="48"
+              height="48"
+            /><strong>Codex</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">로컬 로그인으로 연결합니다.</p>
+              <div data-provider-fields="codex"></div>
+              <button type="button" data-check="codex">연결 확인</button>
             </details>
-          </div>
-          <div class="card">
+          </article>
+          <article class="card ai-card">
             <span class="connection" id="claude">연결 확인 중</span
-            ><span class="avatar">C</span><strong>Claude</strong>
-            <div class="role">메인 프로그래머</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                핵심 아키텍처, 인벤토리·전투·세이브 시스템을 설계하고 코드를
-                작성합니다. 셰이더와 이펙트 구현도 맡습니다.
-              </p>
-              <p class="prompt-example">
-                예시 요청 · Unity용 인벤토리와 세이브 시스템의 구조를 설계하고
-                코드를 작성해줘.
-              </p>
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/claude-color.svg"
+              alt="Claude 로고"
+              width="48"
+              height="48"
+            /><strong>Claude</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <div data-provider-fields="claude"></div>
+              <button type="submit" form="settings-form">설정 저장</button>
             </details>
-          </div>
-          <div class="card">
-            <span class="connection" id="cursor">API 설정 필요</span
-            ><span class="avatar">↗</span><strong>Cursor AI</strong>
-            <div class="role">코드 통합 · 디버깅</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                저장소에서 시스템을 통합하고 버그 수정, 리팩토링, 실행 테스트와
-                UI 연결을 담당하도록 배치했습니다. 연결 설정에 API 키를 입력하고
-                프로젝트의 GitHub 저장소를 지정하면 원격 작업을 제출할 수
-                있습니다.
-              </p>
-              <p class="prompt-example">
-                예시 요청 · 전투 시스템과 HUD를 연결하고 런타임 오류를 재현해
-                수정해줘.
-              </p>
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="cursor">연결 확인 중</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/cursor.svg"
+              alt="Cursor AI 로고"
+              width="48"
+              height="48"
+            /><strong>Cursor AI</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <div data-provider-fields="cursor"></div>
+              <button type="submit" form="settings-form">설정 저장</button
+              ><button type="button" data-check="cursor">연결 확인</button>
             </details>
-          </div>
-          <div class="card">
+          </article>
+          <article class="card ai-card">
             <span class="connection" id="v0">연결 확인 중</span
-            ><span class="avatar">v0</span><strong>v0</strong>
-            <div class="role">UI/UX · 화면 프로토타입</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                상점, 인벤토리, HUD의 웹 기반 레이아웃과 인터랙션 초안을
-                만듭니다. Unity·Unreal 화면 구현은 Claude와 Cursor가 담당합니다.
-              </p>
-              <p class="prompt-example">
-                예시 요청 · 모바일 게임 상점과 HUD의 반응형 웹 프로토타입을
-                만들어줘.
-              </p>
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/v0.svg"
+              alt="v0 by Vercel 로고"
+              width="48"
+              height="48"
+            /><strong>v0 by Vercel</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <div data-provider-fields="v0"></div>
+              <button type="submit" form="settings-form">설정 저장</button>
             </details>
-          </div>
-          <div class="card">
-            <span class="connection">수동 연결</span
-            ><span class="avatar">M</span><strong>Midjourney</strong>
-            <div class="role">콘셉트 아트 · 비주얼</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                캐릭터, 배경, 타일셋의 콘셉트 이미지를 제작합니다. Codex가
-                이미지 프롬프트를 정리하고 Midjourney에서 수동 생성합니다. 자동
-                실행과 에셋 업로드는 아직 연결되지 않았습니다.
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="midjourney">별도 연결 필요</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/midjourney.svg"
+              alt="Midjourney 로고"
+              width="48"
+              height="48"
+            /><strong>Midjourney</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">
+                현재 수동으로 사용합니다. 자동 실행은 연결되지 않았습니다.
               </p>
-              <p class="prompt-example">
-                예시 요청 · 사이버펑크 탑다운 게임 타일셋의 콘셉트 이미지 제작
-              </p>
+              <div data-provider-fields="midjourney"></div>
               <a
                 href="https://www.midjourney.com/"
                 target="_blank"
@@ -286,93 +302,109 @@
                 >Midjourney 열기 ↗</a
               >
             </details>
-          </div>
-          <div class="card">
-            <span class="connection" id="notion">API 설정 필요</span
-            ><span class="avatar">N</span><strong>Notion AI</strong>
-            <div class="role">시나리오 · 기획 문서 관리</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                퀘스트, NPC 대사, 아이템 설명의 초안과 설정집·기획서·업무표
-                관리를 담당하도록 배치했습니다. Notion 문서 저장 버튼으로 기획과
-                작업 결과를 동기화합니다. Notion AI 자체의 대화 실행은 별도
-                기능입니다.
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="notion">연결 확인 중</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/notion.svg"
+              alt="Notion AI 로고"
+              width="48"
+              height="48"
+            /><strong>Notion AI</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">
+                문서 API 연결 · 대상 페이지를 Notion 통합에 공유해주세요.
               </p>
-              <p class="prompt-example">
-                예시 요청 · 무기 상인 NPC의 대사 5개를 작성하고 퀘스트 설정과
-                함께 정리해줘.
-              </p>
+              <div data-provider-fields="notion"></div>
+              <button type="submit" form="settings-form">설정 저장</button
+              ><button type="button" data-check="notion">연결 확인</button>
             </details>
-          </div>
-          <div class="card">
+          </article>
+          <article class="card ai-card">
             <span class="connection" id="gemini">연결 확인 중</span
-            ><span class="avatar">G</span><strong>Gemini</strong>
-            <div class="role">QA · 밸런스 검토</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                요구사항 누락과 코드 오류를 검토하고 데미지·보상·성장 곡선의
-                계산을 점검합니다. 실제 게임 실행 테스트 결과는 Cursor의 검증
-                기록으로 확인합니다.
-              </p>
-              <p class="prompt-example">
-                예시 요청 · 10레벨 플레이어의 스탯과 전투 시간을 기준으로 보스
-                체력·공격력의 계산 근거를 검토해줘.
-              </p>
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/gemini-color.svg"
+              alt="Gemini 로고"
+              width="48"
+              height="48"
+            /><strong>Gemini</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <div data-provider-fields="gemini"></div>
+              <button type="submit" form="settings-form">설정 저장</button>
             </details>
-          </div>
-          <div class="card">
-            <span class="connection">작업 흐름 연결 예정</span
-            ><span class="avatar">P</span><strong>Perplexity</strong>
-            <div class="role">레퍼런스 · 기술 조사</div>
-            <details>
-              <summary>담당 업무</summary>
-              <p>
-                장르 레퍼런스, 엔진 문서, 구현 사례를 출처와 함께 조사하도록
-                배치했습니다. 현재 자동 작업 순서에는 포함되지 않습니다.
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="perplexity">연결 확인 중</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/perplexity-color.svg"
+              alt="Perplexity AI 로고"
+              width="48"
+              height="48"
+            /><strong>Perplexity AI</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">
+                API 설정 가능 · 자동 작업 순서에는 포함되지 않습니다.
               </p>
-              <p class="prompt-example">
-                예시 요청 · 이 장르의 코어 루프 사례와 Unity 공식 구현 문서를
-                출처와 함께 조사해줘.
-              </p>
+              <div data-provider-fields="perplexity"></div>
+              <button type="submit" form="settings-form">설정 저장</button>
             </details>
-          </div>
-          <div class="card">
-            <span class="connection">CLI 설치·로그인 필요</span
-            ><strong>GitHub Copilot</strong>
-            <div class="role">코드 검토 · 테스트 제안</div>
-          </div>
-          <div class="card">
-            <span class="connection" id="stability">API 키 필요</span
-            ><strong>Stable Diffusion</strong>
-            <div class="role">2D 에셋 · 텍스처</div>
-          </div>
-          <div class="card">
-            <span class="connection" id="meshy">API 키 필요</span
-            ><strong>Meshy</strong>
-            <div class="role">3D 모델 생성</div>
-          </div>
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="copilot">별도 연결 필요</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/githubcopilot.svg"
+              alt="GitHub Copilot 로고"
+              width="48"
+              height="48"
+            /><strong>GitHub Copilot</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">
+                이 PC에 Copilot CLI 설치와 로그인이 필요합니다.
+              </p>
+              <div data-provider-fields="copilot"></div>
+            </details>
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="stability">연결 확인 중</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/stability-color.svg"
+              alt="Stable Diffusion 로고"
+              width="48"
+              height="48"
+            /><strong>Stable Diffusion</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <p class="notice">Stability AI API로 연결합니다.</p>
+              <div data-provider-fields="stability"></div>
+              <button type="submit" form="settings-form">설정 저장</button>
+            </details>
+          </article>
+          <article class="card ai-card">
+            <span class="connection" id="meshy">연결 확인 중</span
+            ><img
+              class="ai-brand-logo"
+              src="/assets/ai/meshy-color.svg"
+              alt="Meshy 로고"
+              width="48"
+              height="48"
+            /><strong>Meshy</strong>
+            <details class="ai-connect">
+              <summary>연결 설정</summary>
+              <div data-provider-fields="meshy"></div>
+              <button type="submit" form="settings-form">설정 저장</button>
+            </details>
+          </article>
         </section>
-      </details>
-      <details class="settings" id="settings">
-        <summary>연결 설정</summary>
-        <p>
-          키는 이 PC의 data/settings.json에 저장되며 GitHub에는 포함되지
-          않습니다. Notion은 문서 API로 연결됩니다. 대상 페이지를 Notion 통합에
-          공유해주세요.
-        </p>
-        <form id="settings-form">
-          <div id="settings-fields" class="form-grid"></div>
-          <button class="primary">설정 저장</button>
-        </form>
-        <div class="actions">
-          <button data-check="codex">Codex 확인</button
-          ><button data-check="notion">Notion 확인</button
-          ><button data-check="cursor">Cursor 확인</button>
-        </div>
-        <p id="settings-status" role="status"></p>
-      </details>
+      </section>
       <footer class="page-footer">
         <span>WC OFFICE</span><span>PRIVATE CREATIVE WORKSPACE</span>
       </footer>
@@ -383,13 +415,13 @@
       aria-controls="chat-sidebar"
       aria-expanded="false"
     >
-      AI 대화 <span>◂</span>
+      메신저 <span>▸</span>
     </button>
-    <dialog id="chat-sidebar" aria-label="AI 대화 사이드바">
+    <dialog id="chat-sidebar" aria-label="메신저 사이드바">
       <section class="group-room">
         <div class="room-panel-title">
-          AI 대화
-          <button id="chat-close" type="button" aria-label="AI 대화 닫기">
+          메신저
+          <button id="chat-close" type="button" aria-label="메신저 닫기">
             ✕
           </button>
         </div>

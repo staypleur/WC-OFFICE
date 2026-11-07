@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 80" fill="none">
-  <title>WOOCHAN COMPUTER</title>
+  <title>WC Office</title>
   <defs>
     <linearGradient id="screen" x1="12" y1="60" x2="68" y2="12" gradientUnits="userSpaceOnUse">
       <stop stop-color="#3675FF"/>
@@ -11,6 +11,5 @@
   <path d="m25 29 7 17 8-12 8 12 7-17" stroke="#F3F7FF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M40 59v7m-10 0h20" stroke="#79D5FF" stroke-width="4" stroke-linecap="round"/>
   <circle cx="64" cy="36" r="3" fill="#79D5FF"/>
-  <text x="99" y="37" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="700" letter-spacing="1.5" fill="#F3F7FF">WOOCHAN</text>
-  <text x="101" y="62" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="500" letter-spacing="5.2" fill="#79D5FF">COMPUTER</text>
+  <text x="99" y="52" font-family="Arial, Helvetica, sans-serif" font-size="39" font-weight="700" letter-spacing="-1" fill="#F3F7FF">WC <tspan fill="#79D5FF">Office</tspan></text>
 </svg>

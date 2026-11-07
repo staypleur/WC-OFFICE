@@ -149,15 +149,22 @@ const server = http.createServer(async (req, res) => {
   try {
     if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
       return send(res, 403, { error: "허용되지 않은 주소입니다." });
-    if (req.method === "GET" && ["/", "/app.js"].includes(req.url)) {
+    if (
+      req.method === "GET" &&
+      ["/", "/app.js", "/motion.js", "/design.css"].includes(req.url)
+    ) {
       res.writeHead(200, {
         "Content-Type":
-          req.url === "/"
-            ? "text/html; charset=utf-8"
-            : "text/javascript; charset=utf-8",
+          req.url === "/design.css"
+            ? "text/css; charset=utf-8"
+            : req.url === "/"
+              ? "text/html; charset=utf-8"
+              : "text/javascript; charset=utf-8",
         "Cache-Control": "no-store",
       });
-      return res.end(await readFile(req.url === "/" ? "index.html" : "app.js"));
+      return res.end(
+        await readFile(req.url === "/" ? "index.html" : req.url.slice(1)),
+      );
     }
     if (req.method === "GET" && req.url === "/api/projects")
       return send(res, 200, projects);

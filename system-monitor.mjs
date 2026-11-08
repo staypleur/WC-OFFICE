@@ -1,4 +1,5 @@
 import os from "node:os";
+import { rankGpuProcesses } from "./gpu-monitor.mjs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const execute = promisify(execFile);
@@ -86,13 +87,14 @@ export async function processSnapshot() {
   processPending = (async () => {
     try {
       const script =
-        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; @(Get-Process | Where-Object { $_.Id -ne 0 } | ForEach-Object { @{id=$_.Id;name=$_.ProcessName;cpu=[double]$_.CPU;memory=[double]$_.WorkingSet64} }) | ConvertTo-Json -Compress";
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $processList = @(Get-Process | Where-Object { $_.Id -ne 0 } | ForEach-Object { @{id=$_.Id;name=$_.ProcessName;cpu=[double]$_.CPU;memory=[double]$_.WorkingSet64} }); $gpuAvailable = $true; $gpuCounters = @(); try { $gpuCounters = @(Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine -ErrorAction Stop | ForEach-Object { @{name=$_.Name;usage=[double]$_.UtilizationPercentage} }) } catch { $gpuAvailable = $false }; @{processes=$processList;gpu=$gpuCounters;gpuAvailable=$gpuAvailable} | ConvertTo-Json -Compress -Depth 4";
       const { stdout } = await execute(
         "powershell.exe",
         ["-NoProfile", "-NonInteractive", "-Command", script],
         { windowsHide: true, timeout: 7000, maxBuffer: 1024 * 1024 },
       );
-      const rows = JSON.parse(stdout.replace(/^\uFEFF/, ""));
+      const sample = JSON.parse(stdout.replace(/^\uFEFF/, ""));
+      const rows = sample.processes;
       const at = Date.now();
       processCache = {
         ...rankProcesses(
@@ -102,6 +104,10 @@ export async function processSnapshot() {
           os.cpus().length,
         ),
         sampledAt: new Date(at).toISOString(),
+        gpu: sample.gpuAvailable ? rankGpuProcesses(sample.gpu, rows) : [],
+        gpuError: sample.gpuAvailable
+          ? null
+          : "프로그램별 GPU 사용량을 측정할 수 없습니다. 다음 갱신에서 다시 확인합니다.",
       };
       processRows = new Map(rows.map((p) => [p.id, p]));
       processAt = at;

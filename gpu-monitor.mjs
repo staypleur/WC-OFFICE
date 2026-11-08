@@ -2,6 +2,34 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const execute = promisify(execFile);
 
+// Match Task Manager's busiest-engine metric; do not sum parallel engines.
+// https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/
+export function rankGpuProcesses(counters, processes) {
+  const names = new Map(processes.map((p) => [p.id, p.name]));
+  const busiest = new Map();
+  for (const counter of counters) {
+    const match = /^pid_(\d+)_.*_phys_(\d+)_eng_\d+_engtype_(.+)$/.exec(
+      counter.name,
+    );
+    const value = Number(counter.usage);
+    if (!match || !Number.isFinite(value) || value <= 0) continue;
+    const id = Number(match[1]);
+    if (!names.has(id)) continue;
+    const gpu = Math.min(100, value);
+    if (!busiest.has(id) || gpu > busiest.get(id).gpu)
+      busiest.set(id, {
+        id,
+        name: names.get(id),
+        gpu,
+        engine: match[3],
+        adapter: Number(match[2]),
+      });
+  }
+  return [...busiest.values()]
+    .sort((a, b) => b.gpu - a.gpu || a.id - b.id)
+    .slice(0, 5);
+}
+
 function numberOrNull(value) {
   if (!value || !/^\d+(?:\.\d+)?$/.test(value.trim())) return null;
   return Number(value);

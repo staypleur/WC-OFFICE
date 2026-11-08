@@ -3594,3 +3594,16 @@ html[data-project-loading] #project-list {
 .system-gpu-metrics {
   margin-top: 22px;
 }
+.system-gpu-processes {
+  grid-column: 1 / -1;
+}
+.system-gpu-processes small {
+  display: block;
+  margin-top: 16px;
+  color: #8fa8be;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.system-gpu-processes li strong {
+  color: #c4a7ff;
+}

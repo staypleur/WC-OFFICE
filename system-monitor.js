@@ -158,13 +158,17 @@ function startSystemAnimation() {
   systemFrame = requestAnimationFrame(frame);
 }
 function renderProcessRanks(data) {
-  for (const key of ["cpu", "memory"]) {
+  for (const key of ["cpu", "memory", "gpu"]) {
     const list = document.getElementById("system-top-" + key);
     list.replaceChildren();
     const rows = data?.[key] || [];
     if (!rows.length) {
       const row = document.createElement("li");
-      row.textContent = data?.error || "사용량을 측정하고 있습니다…";
+      row.textContent =
+        data?.error ||
+        (key === "gpu"
+          ? data?.gpuError || "현재 측정된 GPU 사용 프로그램이 없습니다."
+          : "사용량을 측정하고 있습니다…");
       list.append(row);
     }
     for (const p of rows) {
@@ -172,9 +176,12 @@ function renderProcessRanks(data) {
         name = document.createElement("span"),
         value = document.createElement("strong");
       name.textContent = p.name + " · " + p.id;
-      name.title = "프로세스 ID " + p.id;
+      name.title =
+        "프로세스 ID " +
+        p.id +
+        (key === "gpu" ? " · GPU " + p.adapter + " · " + p.engine : "");
       value.textContent =
-        key === "cpu" ? p.cpu.toFixed(1) + "%" : gib(p.memory);
+        key === "memory" ? gib(p.memory) : p[key].toFixed(1) + "%";
       row.append(name, value);
       list.append(row);
     }

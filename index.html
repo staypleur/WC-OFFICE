@@ -569,6 +569,75 @@
         </div>
         <p id="project-goal"></p>
         <p id="project-folder" class="notice"></p>
+        <section class="workflow-panel" aria-label="프로젝트 작업 흐름">
+          <ol id="workflow-stages" class="workflow-stages"></ol>
+          <p id="workflow-current" role="status"></p>
+          <p id="workflow-blocker" class="workflow-blocker" hidden></p>
+        </section>
+        <section class="approval-panel" aria-labelledby="approval-heading">
+          <div class="section-head">
+            <h3 id="approval-heading">결과 검토</h3>
+            <span id="approval-state"></span>
+          </div>
+          <div class="review-summary">
+            <div>
+              <small>완료한 일</small>
+              <p id="review-done"></p>
+            </div>
+            <div>
+              <small>진행 중인 일</small>
+              <p id="review-current"></p>
+            </div>
+            <div>
+              <small>필요한 결정</small>
+              <p id="review-next"></p>
+            </div>
+          </div>
+          <p id="review-validation" class="notice"></p>
+          <div class="review-results">
+            <details>
+              <summary>이전 제작 결과</summary>
+              <pre id="review-before"></pre>
+            </details>
+            <details>
+              <summary>최신 제작 결과 · 코드</summary>
+              <pre id="review-after"></pre>
+            </details>
+          </div>
+          <details>
+            <summary>AI 검토 보고서</summary>
+            <pre id="review-report"></pre>
+          </details>
+          <label class="review-check"
+            ><input id="review-checked" type="checkbox" /> 결과와 미검증 항목을
+            확인했습니다.</label
+          >
+          <div class="actions">
+            <button data-action="/api/approve" id="review-approve">
+              최종 승인
+            </button>
+          </div>
+          <details>
+            <summary>수정 요청</summary>
+            <label
+              >수정할 내용<textarea
+                id="revision-note"
+                maxlength="4000"
+                placeholder="어떤 부분을 어떻게 바꿀지 적어주세요."
+              ></textarea></label
+            ><button data-action="/api/revision" id="review-revision">
+              수정 요청 저장
+            </button>
+            <p class="notice">
+              요청은 다음 제작에 반영됩니다. 제작 버튼을 눌러 작업을
+              시작해주세요.
+            </p>
+          </details>
+          <details>
+            <summary>승인 · 수정 요청 기록</summary>
+            <ol id="review-history"></ol>
+          </details>
+        </section>
         <details>
           <summary>프로젝트 설정 수정</summary>
           <form id="project-settings">
@@ -600,8 +669,8 @@
           <button data-action="/api/build">제작 · 컴파일</button
           ><button data-action="/api/compile">저장한 코드 재컴파일</button
           ><button id="open-unity" data-action="/api/unity/open">
-            Unity에서 열기</button
-          ><button data-action="/api/approve">최종 승인</button>
+            Unity에서 열기
+          </button>
         </div>
         <details>
           <summary>연결된 AI에 작업 요청</summary>

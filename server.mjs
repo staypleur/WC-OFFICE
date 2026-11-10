@@ -1,4 +1,5 @@
 import http from "node:http";
+import { buildTitles, validateDecision } from "./workflow.mjs";
 import { systemSnapshot, processSnapshot } from "./system-monitor.mjs";
 import { gpuSnapshot } from "./gpu-monitor.mjs";
 import { createMarketing } from "./marketing.mjs";
@@ -127,6 +128,7 @@ function job(p, title, provider, work) {
   if (p.onHold) throw new Error("보류를 해제한 뒤 작업을 요청해주세요.");
   if (active.has(p.id)) throw new Error("현재 작업이 끝난 뒤 요청해주세요.");
   active.add(p.id);
+  if (buildTitles.includes(title)) p.approved = false;
   p.status = "작업 중";
   p.phase = { agent: provider, title };
   p.activity ||= [];
@@ -137,7 +139,13 @@ function job(p, title, provider, work) {
     kind: "started",
     text: `${title} 시작`,
   });
-  const task = { id: randomUUID(), title, agent: provider, status: "진행 중" };
+  const task = {
+    id: randomUUID(),
+    title,
+    agent: provider,
+    status: "진행 중",
+    startedAt: new Date().toISOString(),
+  };
   p.tasks.push(task);
   const promise = (async () => {
     try {
@@ -167,6 +175,7 @@ function job(p, title, provider, work) {
         text: e.message,
       });
     } finally {
+      task.finishedAt = new Date().toISOString();
       p.events.push(`${title} · ${task.status}`);
       p.phase = null;
       if (p.folder)
@@ -390,6 +399,7 @@ const server = http.createServer(async (req, res) => {
           "/marketing.js",
           "/design.css",
           "/project-summary.mjs",
+          "/workflow.mjs",
           "/history-compare.mjs",
         ].includes(req.url))
     ) {
@@ -713,23 +723,38 @@ const server = http.createServer(async (req, res) => {
       if (active.has(p.id) || !p.unityFolder)
         throw new Error("제작 완료 후 열어주세요.");
       await openUnity(p.unityFolder);
-    } else if (req.url === "/api/approve") {
-      if (
-        active.has(p.id) ||
-        p.tasks
-          .filter((t) =>
-            [
-              "게임 제작 · Unity 컴파일",
-              "Web 제작",
-              "Roblox 제작",
-              "랜딩페이지 제작",
-            ].includes(t.title),
-          )
-          .at(-1)?.status !== "완료"
-      )
-        throw new Error("최신 제작 작업 완료 후 결과를 확인하고 승인해주세요.");
-      p.approved = true;
-      p.status = "승인 완료";
+    } else if (req.url === "/api/approve" || req.url === "/api/revision") {
+      if (active.has(p.id))
+        throw new Error("작업 완료 후 결과를 확인해주세요.");
+      const build = validateDecision(
+        p,
+        body.taskId,
+        req.url === "/api/approve" ? body.reviewed === true : true,
+      );
+      const revision = req.url === "/api/revision";
+      const note = revision
+        ? requireText(body.note, 4000)
+        : "결과와 미검증 항목 확인 후 승인";
+      const decision = {
+        taskId: build.id,
+        at: new Date().toISOString(),
+        kind: revision ? "revision" : "approved",
+        note,
+      };
+      (p.decisions ||= []).push(decision);
+      p.approved = !revision;
+      p.status = revision ? "수정 요청" : "승인 완료";
+      if (revision) {
+        p.revisionRequest = decision;
+        p.messages.push({ role: "우찬", text: "수정 요청: " + note });
+      } else p.revisionRequest = null;
+      p.activity.push({
+        id: randomUUID(),
+        at: decision.at,
+        from: "우찬",
+        kind: decision.kind,
+        text: note,
+      });
       await save();
     } else if (req.url === "/api/notion") {
       job(p, "Notion 문서 동기화", "Notion", async () => {

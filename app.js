@@ -1,4 +1,5 @@
 import { projectSummary } from "/project-summary.mjs";
+import { workflow } from "/workflow.mjs";
 import {
   compareHistory,
   historyKey,
@@ -709,7 +710,86 @@ function renderProject(project) {
             : "Web 제작";
   $('#workspace [data-action="/api/build"]').disabled =
     busy || project.type === "unassigned" || project.type === "app";
+  renderWorkflow(project);
 }
+function renderWorkflow(project) {
+  const state = workflow(project);
+  const key = project.id + ":" + (state.build?.id || "none");
+  const panel = $(".approval-panel");
+  if (panel.dataset.result !== key) {
+    panel.dataset.result = key;
+    $("#review-checked").checked = false;
+    $("#revision-note").value = "";
+  }
+  panel.dataset.taskId = state.build?.id || "";
+  panel.dataset.ready = String(state.ready);
+  $("#workflow-stages").innerHTML = ["기획", "개발", "검증", "승인", "완료"]
+    .map(
+      (name, i) =>
+        `<li class="${i === state.stage ? "current" : ""}" ${i === state.stage ? 'aria-current="step"' : ""}><span>${i + 1}</span>${name}</li>`,
+    )
+    .join("");
+  $("#workflow-current").textContent = state.current;
+  $("#workflow-blocker").hidden = !state.blocker;
+  $("#workflow-blocker").textContent = state.blocker.slice(0, 600);
+  $("#approval-state").textContent = project.approved
+    ? "승인 완료"
+    : state.ready
+      ? "검토 대기"
+      : "대기";
+  $("#review-done").textContent =
+    state.build?.status === "완료"
+      ? state.build.title + " 완료"
+      : "완료된 최신 제작 결과 없음";
+  $("#review-current").textContent = state.current;
+  $("#review-next").textContent = state.ready
+    ? "결과 확인 후 승인 또는 수정 요청"
+    : state.blocker
+      ? "확인 필요 사항 해결"
+      : project.approved
+        ? "승인 완료 · 다음 목표 설정"
+        : "기획 대화 또는 제작 시작";
+  $("#review-validation").textContent = !state.build
+    ? "제작 결과가 생성되면 검증 범위를 표시합니다."
+    : project.type === "unity" && state.build.status === "완료"
+      ? "Unity 컴파일 완료 · 실제 플레이와 게임 밸런스는 직접 확인해주세요."
+      : "코드 생성과 실행 검증은 다릅니다. Web은 브라우저에서, Roblox는 Studio에서 동작을 확인해주세요. AI 검토는 실행 테스트를 대신하지 않습니다.";
+  $("#review-before").textContent =
+    state.previous?.output || "이전 완료 결과가 없습니다.";
+  $("#review-after").textContent =
+    state.build?.output || "아직 제작 결과가 없습니다.";
+  const activity = project.activity || [];
+  const start = activity.findLastIndex(
+    (a) => a.kind === "started" && a.text === state.build?.title + " 시작",
+  );
+  const report =
+    start >= 0
+      ? activity
+          .slice(start)
+          .findLast(
+            (a) => a.from === "Gemini" && a.detail && a.text.includes("보고서"),
+          )
+      : null;
+  $("#review-report").textContent =
+    report?.detail || "이 제작 결과에 대한 별도 AI 검토 보고서가 없습니다.";
+  $("#review-checked").disabled = !state.ready;
+  $("#review-approve").disabled = !state.ready || !$("#review-checked").checked;
+  $("#review-revision").disabled = !state.ready;
+  $("#review-history").innerHTML =
+    (project.decisions || [])
+      .slice()
+      .reverse()
+      .map(
+        (d) =>
+          `<li><time>${escape(new Date(d.at).toLocaleString("ko-KR"))}</time><strong>${d.kind === "approved" ? "승인" : "수정 요청"}</strong><p>${escape(d.note)}</p></li>`,
+      )
+      .join("") || "<li>아직 승인 기록이 없습니다.</li>";
+}
+$("#review-checked").onchange = () => {
+  $("#review-approve").disabled =
+    $(".approval-panel").dataset.ready !== "true" ||
+    !$("#review-checked").checked;
+};
 async function config() {
   const data = await request("/api/config");
   if (!$("#folder").value) $("#folder").value = data.defaultFolder;
@@ -1500,12 +1580,21 @@ $("#workspace").addEventListener("click", async (event) => {
     await request(button.dataset.action, {
       id: selected,
       prompt: $("#asset-prompt").value,
+      taskId: $(".approval-panel").dataset.taskId,
+      reviewed: $("#review-checked").checked,
+      note: $("#revision-note").value,
     });
     await refresh();
   } catch (e) {
     error(e.message);
   } finally {
-    button.disabled = false;
+    button.disabled =
+      button.id === "review-approve"
+        ? $(".approval-panel").dataset.ready !== "true" ||
+          !$("#review-checked").checked
+        : button.id === "review-revision"
+          ? $(".approval-panel").dataset.ready !== "true"
+          : false;
   }
 });
 $("#settings-form").onsubmit = async (event) => {

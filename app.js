@@ -1,5 +1,6 @@
 import { projectSummary } from "/project-summary.mjs";
 import { workflow } from "/workflow.mjs";
+import { observeProject } from "/office-alerts.js";
 import {
   compareHistory,
   historyKey,
@@ -481,6 +482,7 @@ async function refresh() {
   const receivedProjects = await request("/api/projects");
   if (requestedPath !== location.pathname) return;
   projects = receivedProjects;
+  projects.forEach(observeProject);
   const heldPage = location.pathname === "/projects/held";
   const visibleProjects = projects.filter((p) => !!p.onHold === heldPage);
   $("#project-list h2").textContent = heldPage
@@ -643,6 +645,7 @@ $("#refresh-all").onclick = async () => {
   }
 };
 function renderProject(project) {
+  observeProject(project);
   if (project.id !== selected) return;
   $("#workspace").hidden = false;
   $("#project-name").textContent = project.name || project.goal;
@@ -652,6 +655,7 @@ function renderProject(project) {
   if (editingProject !== project.id) {
     $("#edit-name").value = project.name || project.goal.slice(0, 80);
     $("#edit-goal").value = project.goal;
+    $("#edit-memory").value = project.memory || "";
     $("#edit-repository").value = project.repository || "";
     $("#edit-developer").value = project.developer || "claude";
     $("#edit-type").value = project.type;
@@ -714,6 +718,35 @@ function renderProject(project) {
 }
 function renderWorkflow(project) {
   const state = workflow(project);
+  $("#test-report").textContent = state.build?.validation
+    ? state.build.validation.checks
+        .map(
+          (c) =>
+            `${c.passed ? "통과" : "실패"} · ${c.name}${c.detail ? "\n" + c.detail : ""}`,
+        )
+        .join("\n\n") +
+      "\n\n" +
+      state.build.validation.note
+    : "이전 결과에는 자동 검사 기록이 없습니다. 다음 제작부터 검사 결과가 저장됩니다.";
+  const checkpointSelect = $("#checkpoint-select");
+  const selectedCheckpoint = checkpointSelect.value;
+  checkpointSelect.replaceChildren();
+  for (const cp of (project.checkpoints || []).slice().reverse()) {
+    const option = document.createElement("option");
+    option.value = cp.id;
+    option.textContent = `${new Date(cp.at).toLocaleString("ko-KR")} · ${cp.artifact.type.toUpperCase()}`;
+    checkpointSelect.append(option);
+  }
+  if ([...checkpointSelect.options].some((o) => o.value === selectedCheckpoint))
+    checkpointSelect.value = selectedCheckpoint;
+  if (!checkpointSelect.options.length) {
+    const option = document.createElement("option");
+    option.textContent = "저장된 체크포인트 없음";
+    option.value = "";
+    checkpointSelect.append(option);
+  }
+  $("#restore-checkpoint").disabled =
+    !checkpointSelect.value || project.status === "작업 중" || !!project.onHold;
   const key = project.id + ":" + (state.build?.id || "none");
   const panel = $(".approval-panel");
   if (panel.dataset.result !== key) {
@@ -751,9 +784,11 @@ function renderWorkflow(project) {
         : "기획 대화 또는 제작 시작";
   $("#review-validation").textContent = !state.build
     ? "제작 결과가 생성되면 검증 범위를 표시합니다."
-    : project.type === "unity" && state.build.status === "완료"
-      ? "Unity 컴파일 완료 · 실제 플레이와 게임 밸런스는 직접 확인해주세요."
-      : "코드 생성과 실행 검증은 다릅니다. Web은 브라우저에서, Roblox는 Studio에서 동작을 확인해주세요. AI 검토는 실행 테스트를 대신하지 않습니다.";
+    : state.build.validation
+      ? state.build.validation.note
+      : project.type === "unity" && state.build.status === "완료"
+        ? "Unity 컴파일 완료 · 실제 플레이와 게임 밸런스는 직접 확인해주세요."
+        : "코드 생성과 실행 검증은 다릅니다. Web은 브라우저에서, Roblox는 Studio에서 동작을 확인해주세요. AI 검토는 실행 테스트를 대신하지 않습니다.";
   $("#review-before").textContent =
     state.previous?.output || "이전 완료 결과가 없습니다.";
   $("#review-after").textContent =
@@ -1562,6 +1597,7 @@ $("#project-settings").onsubmit = async (event) => {
       id: selected,
       name: $("#edit-name").value,
       goal: $("#edit-goal").value,
+      memory: $("#edit-memory").value,
       repository: $("#edit-repository").value,
       developer: $("#edit-developer").value,
       type: $("#edit-type").value,
@@ -1583,6 +1619,7 @@ $("#workspace").addEventListener("click", async (event) => {
       taskId: $(".approval-panel").dataset.taskId,
       reviewed: $("#review-checked").checked,
       note: $("#revision-note").value,
+      checkpointId: $("#checkpoint-select").value,
     });
     await refresh();
   } catch (e) {
@@ -1645,6 +1682,10 @@ if (location.pathname === "/projects") resetProjectFiltersFor("/projects");
 routeProject(selected, false);
 setInterval(() => {
   if (!selected) refresh().catch((e) => error(e.message));
+  else
+    request("/api/projects")
+      .then((rows) => rows.forEach(observeProject))
+      .catch(() => {});
 }, 10000);
 
 function renderChat(project) {

@@ -1,4 +1,9 @@
 import http from "node:http";
+import {
+  checkpoint,
+  restoreCheckpoint,
+  testArtifact,
+} from "./project-tools.mjs";
 import { buildTitles, validateDecision } from "./workflow.mjs";
 import { systemSnapshot, processSnapshot } from "./system-monitor.mjs";
 import { gpuSnapshot } from "./gpu-monitor.mjs";
@@ -117,7 +122,7 @@ function requireText(value, max = 4000) {
   return value.trim();
 }
 function context(p) {
-  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\nGitHub 분석(실행 검증과 구분): ${p.repositoryReport ? JSON.stringify(p.repositoryReport) : "미확인"}\n기획 인수인계:\n${p.brief || ""}\n대화:\n${p.messages
+  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n프로젝트 공통 기억(취향·개발 규칙·금지 사항): ${p.memory || "미설정"}\nGitHub 분석(실행 검증과 구분): ${p.repositoryReport ? JSON.stringify(p.repositoryReport) : "미확인"}\n기획 인수인계:\n${p.brief || ""}\n대화:\n${p.messages
     .filter((m) => m.role !== "시스템")
     .slice(-12)
     .map((m) => m.role + ": " + m.text)
@@ -150,7 +155,25 @@ function job(p, title, provider, work) {
   const promise = (async () => {
     try {
       await save();
+      if (buildTitles.includes(title)) {
+        await checkpoint(p);
+        await save();
+      }
       task.output = await work();
+      if (buildTitles.includes(title) && p.artifact) {
+        p.phase = { agent: "시스템", title: "자동 검증" };
+        await save();
+        task.artifact = { ...p.artifact };
+        task.validation = await testArtifact(p.artifact, compileUnity);
+        if (task.validation.passed === false)
+          throw new Error(
+            "자동 검사 실패: " +
+              task.validation.checks
+                .filter((c) => !c.passed)
+                .map((c) => c.name + ": " + (c.detail || "문서 구조 확인 필요"))
+                .join("\n"),
+          );
+      }
       task.status = "완료";
       p.messages.push({ role: provider, text: task.output });
       p.status = "대화 가능";
@@ -164,7 +187,7 @@ function job(p, title, provider, work) {
       });
     } catch (e) {
       task.status = "오류";
-      task.output = e.message;
+      task.output = (task.output ? task.output + "\n\n" : "") + e.message;
       p.status = "확인 필요";
       p.messages.push({ role: "시스템", text: e.message });
       p.activity.push({
@@ -280,6 +303,7 @@ async function makeGame(p) {
   await mkdir(folder);
   await writeUnity(folder, files);
   p.unityFolder = folder;
+  p.artifact = { type: "unity", path: folder };
   p.approved = false;
   p.phase = { agent: "Unity", title: "컴파일 검증" };
   await teamEvent(
@@ -289,7 +313,7 @@ async function makeGame(p) {
     "생성한 C# 파일을 저장하고 컴파일을 시작합니다.",
     folder,
   );
-  return `${files.length}개 C# 파일 저장\n${folder}\n${await compileUnity(folder)}`;
+  return `${files.length}개 C# 파일 저장\n${folder}\n컴파일 검증 대기`;
 }
 function send(res, status, data) {
   res.writeHead(status, {
@@ -400,6 +424,7 @@ const server = http.createServer(async (req, res) => {
           "/design.css",
           "/project-summary.mjs",
           "/workflow.mjs",
+          "/office-alerts.js",
           "/history-compare.mjs",
         ].includes(req.url))
     ) {
@@ -527,6 +552,8 @@ const server = http.createServer(async (req, res) => {
         goal,
         folder,
         type: body.type === "landing" ? "web" : body.type,
+        memory:
+          typeof body.memory === "string" ? body.memory.slice(0, 6000) : "",
         developer: body.developer,
         repository: typeof body.repository === "string" ? body.repository : "",
         repositoryImported: body.repositoryImported === true,
@@ -602,16 +629,49 @@ const server = http.createServer(async (req, res) => {
       Object.assign(p, {
         name,
         goal,
+        memory:
+          typeof body.memory === "string"
+            ? body.memory.slice(0, 6000)
+            : p.memory || "",
         repository,
         developer: body.developer,
         type: body.type || p.type,
         approved: false,
       });
       await save();
+    } else if (req.url === "/api/checkpoint/restore") {
+      if (active.has(p.id)) throw new Error("작업 종료 후 복원해주세요.");
+      if (!p.checkpoints?.some((c) => c.id === body.checkpointId))
+        throw new Error("체크포인트가 없습니다.");
+      job(p, "체크포인트 복원", "시스템", async () => {
+        await checkpoint(p);
+        p.artifact = await restoreCheckpoint(p, body.checkpointId);
+        p.unityFolder = p.artifact.type === "unity" ? p.artifact.path : null;
+        p.approved = false;
+        p.revisionRequest = null;
+        const validation = await testArtifact(p.artifact, compileUnity);
+        p.tasks.push({
+          id: randomUUID(),
+          title:
+            p.artifact.type === "unity"
+              ? "게임 제작 · Unity 컴파일"
+              : p.artifact.type === "roblox"
+                ? "Roblox 제작"
+                : "Web 제작",
+          status: validation.passed === false ? "오류" : "완료",
+          agent: "시스템",
+          artifact: { ...p.artifact },
+          validation,
+          finishedAt: new Date().toISOString(),
+          output: "체크포인트를 새 폴더에 복원했습니다.\n" + p.artifact.path,
+        });
+        return "복원 완료 · 기존 파일은 유지됩니다.\n" + p.artifact.path;
+      });
     } else if (req.url === "/api/compile") {
       job(p, "게임 제작 · Unity 컴파일", "Unity", async () => {
         if (!p.unityFolder) throw new Error("게임 코드부터 생성해주세요.");
-        return compileUnity(p.unityFolder);
+        p.artifact = { type: "unity", path: p.unityFolder };
+        return "저장한 Unity 코드 재검증\n" + p.unityFolder;
       });
     } else if (req.url === "/api/chat") {
       const message = requireText(body.message);
@@ -696,6 +756,7 @@ const server = http.createServer(async (req, res) => {
                 path.join(folder, "설치안내.txt"),
                 result.instructions,
               );
+              p.artifact = { type: "roblox", path: folder };
               return (
                 "Roblox 코드와 설치 안내 저장 완료\n" +
                 folder +
@@ -716,6 +777,7 @@ const server = http.createServer(async (req, res) => {
                 .replace(/^```(?:html)?\s*/, "")
                 .replace(/\s*```$/, ""),
             );
+            p.artifact = { type: "web", path: file };
             return "HTML 저장 완료 " + file + "\n" + html;
           }),
       );

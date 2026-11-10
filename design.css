@@ -3740,3 +3740,31 @@ html[data-project-loading] #project-list {
     font-size: 12px;
   }
 }
+.office-alerts {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 90;
+  width: min(350px, calc(100vw - 48px));
+  border: 1px solid #86c8ff44;
+  border-radius: 16px;
+  background: #0a1428f5;
+  box-shadow: 0 12px 40px #0006;
+  color: #d5e9fa;
+  font-size: 12px;
+}
+.office-alerts summary {
+  padding: 14px 18px;
+  cursor: pointer;
+}
+.office-alerts > div {
+  max-height: 290px;
+  overflow: auto;
+  padding: 0 18px 16px;
+}
+.office-alerts a {
+  display: block;
+  padding: 12px 0;
+  line-height: 1.7;
+  border-bottom: 1px solid #ffffff12;
+}

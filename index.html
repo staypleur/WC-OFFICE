@@ -594,6 +594,10 @@
             </div>
           </div>
           <p id="review-validation" class="notice"></p>
+          <details>
+            <summary>자동 검사 결과</summary>
+            <pre id="test-report"></pre>
+          </details>
           <div class="review-results">
             <details>
               <summary>이전 제작 결과</summary>
@@ -638,8 +642,25 @@
             <ol id="review-history"></ol>
           </details>
         </section>
+        <section class="workflow-panel">
+          <div class="section-head">
+            <h3>체크포인트</h3>
+            <button type="button" id="enable-notifications">
+              데스크톱 알림 켜기
+            </button>
+          </div>
+          <p class="notice">
+            제작 전 기존 생성 파일을 보관합니다. 복원은 새 폴더에 저장하며 기존
+            파일은 유지됩니다. 연결된 GitHub 저장소 전체의 백업은 아닙니다.
+          </p>
+          <label>복원할 시점<select id="checkpoint-select"></select></label>
+          <button data-action="/api/checkpoint/restore" id="restore-checkpoint">
+            선택한 결과 복원
+          </button>
+          <p id="notification-status" class="notice" role="status"></p>
+        </section>
         <details>
-          <summary>프로젝트 설정 수정</summary>
+          <summary>프로젝트 설정 · 공통 기억</summary>
           <form id="project-settings">
             <label>이름<input id="edit-name" required maxlength="80" /></label
             ><label
@@ -647,6 +668,12 @@
                 id="edit-goal"
                 required
                 maxlength="4000"
+              ></textarea></label
+            ><label
+              >프로젝트 공통 기억<textarea
+                id="edit-memory"
+                maxlength="6000"
+                placeholder="디자인 취향, 개발 규칙, 금지 사항을 적어주세요. 프로젝트 제작과 검토를 요청할 때 공유됩니다."
               ></textarea></label
             ><label>GitHub 저장소<input id="edit-repository" /></label
             ><label

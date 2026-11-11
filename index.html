@@ -569,6 +569,26 @@
         </div>
         <p id="project-goal"></p>
         <p id="project-folder" class="notice"></p>
+        <section class="workflow-panel" aria-labelledby="pipeline-heading">
+          <div class="section-head">
+            <h3 id="pipeline-heading">AI 자동 작업</h3>
+            <span id="pipeline-status" role="status"></span>
+          </div>
+          <p class="notice">
+            목표를 기획·설계·개발·검증으로 나누어 순서대로 실행합니다. 연결된
+            AI의 사용 요금이 발생할 수 있습니다. 최종 승인은 우찬님이
+            결정합니다.
+          </p>
+          <div class="actions">
+            <button type="button" data-pipeline="start">목표로 자동 제작</button
+            ><button type="button" data-pipeline="pause">일시정지</button
+            ><button type="button" data-pipeline="resume">
+              재개 · 실패 단계 재시도
+            </button>
+          </div>
+          <p id="pipeline-hint" class="notice"></p>
+          <ol id="pipeline-steps" class="pipeline-steps"></ol>
+        </section>
         <section class="workflow-panel" aria-label="프로젝트 작업 흐름">
           <ol id="workflow-stages" class="workflow-stages"></ol>
           <p id="workflow-current" role="status"></p>

@@ -17,23 +17,25 @@ export function projectSummary(p) {
   return {
     progress: p.onHold
       ? "보류 중"
-      : p.revisionRequest && flow.blocker
-        ? "수정 요청 · 재제작 대기"
-        : p.phase
-          ? `${p.phase.agent} · ${p.phase.title}`
-          : p.approved
-            ? "최종 승인 완료"
-            : build?.status === "오류"
-              ? "제작 확인 필요"
-              : ready
-                ? "제작 완료 · 결과 확인 대기"
-                : last
-                  ? `${last.title} · ${last.status}`
-                  : p.repositoryReport?.stage
-                    ? p.repositoryReport.stage
-                    : p.repositoryImported
-                      ? "저장소 등록 · 작업 현황 미확인"
-                      : "목표 설정 완료 · 대화 대기",
+      : ["running", "paused", "failed"].includes(p.pipeline?.state)
+        ? flow.current
+        : p.revisionRequest && flow.blocker
+          ? "수정 요청 · 재제작 대기"
+          : p.phase
+            ? `${p.phase.agent} · ${p.phase.title}`
+            : p.approved
+              ? "최종 승인 완료"
+              : build?.status === "오류"
+                ? "제작 확인 필요"
+                : ready
+                  ? "제작 완료 · 결과 확인 대기"
+                  : last
+                    ? `${last.title} · ${last.status}`
+                    : p.repositoryReport?.stage
+                      ? p.repositoryReport.stage
+                      : p.repositoryImported
+                        ? "저장소 등록 · 작업 현황 미확인"
+                        : "목표 설정 완료 · 대화 대기",
     approval: p.onHold
       ? "보류 해제 후 확인"
       : p.revisionRequest && flow.blocker

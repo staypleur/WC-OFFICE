@@ -1,5 +1,10 @@
 import http from "node:http";
 import {
+  createPipeline,
+  unfinishedPipeline,
+  recoverPipeline,
+} from "./pipeline.mjs";
+import {
   checkpoint,
   restoreCheckpoint,
   testArtifact,
@@ -93,6 +98,7 @@ for (const p of projects) {
   p.tasks ||= [];
   p.activity ||= [];
   p.pendingInstructions ||= [];
+  recoverPipeline(p);
   for (const record of [...p.messages, ...p.tasks]) {
     const key = record.role ? "text" : "output";
     if (
@@ -122,7 +128,7 @@ function requireText(value, max = 4000) {
   return value.trim();
 }
 function context(p) {
-  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n프로젝트 공통 기억(취향·개발 규칙·금지 사항): ${p.memory || "미설정"}\nGitHub 분석(실행 검증과 구분): ${p.repositoryReport ? JSON.stringify(p.repositoryReport) : "미확인"}\n기획 인수인계:\n${p.brief || ""}\n대화:\n${p.messages
+  return `프로젝트: ${p.name || p.goal}\n유형: ${p.type || "web"}\n목표: ${p.goal}\n프로젝트 공통 기억(취향·개발 규칙·금지 사항): ${p.memory || "미설정"}\nGitHub 분석(실행 검증과 구분): ${p.repositoryReport ? JSON.stringify(p.repositoryReport) : "미확인"}\n기획 인수인계:\n${p.brief || ""}\nUI·구현 설계:\n${p.designBrief || ""}\n대화:\n${p.messages
     .filter((m) => m.role !== "시스템")
     .slice(-12)
     .map((m) => m.role + ": " + m.text)
@@ -131,7 +137,8 @@ function context(p) {
 }
 function job(p, title, provider, work) {
   if (p.onHold) throw new Error("보류를 해제한 뒤 작업을 요청해주세요.");
-  if (active.has(p.id)) throw new Error("현재 작업이 끝난 뒤 요청해주세요.");
+  if (active.has(p.id) || unfinishedPipeline(p))
+    throw new Error("현재 자동 작업을 완료하거나 재개한 뒤 요청해주세요.");
   active.add(p.id);
   if (buildTitles.includes(title)) p.approved = false;
   p.status = "작업 중";
@@ -290,6 +297,112 @@ async function teamBuild(p, work) {
   }
   return result;
 }
+async function generateProject(p) {
+  if (p.type === "unity") return makeGame(p);
+  if (!p.folder) throw new Error("폴더를 지정한 새 프로젝트를 만들어주세요.");
+  p.approved = false;
+  if (p.type === "roblox") {
+    const output = await runProvider(
+      p.developer || "claude",
+      'Roblox Studio용 게임을 Luau로 작성하라. 외부 에셋 없이 기본 Part를 생성하고 게임 규칙, 승패, 재시작을 구현. ServerScriptService의 Script에 넣을 단일 서버 스크립트와 설치·테스트 지침을 작성. JSON만 출력: {"code":"전체 Luau 코드","instructions":"한국어 설치와 테스트 방법"}. 실행 검증했다고 주장하지 말 것. ' +
+        context(p),
+    );
+    const result = JSON.parse(
+      output
+        .trim()
+        .replace(/^```(?:json)?\s*/, "")
+        .replace(/\s*```$/, ""),
+    );
+    if (
+      !result ||
+      typeof result.code !== "string" ||
+      !result.code.trim() ||
+      typeof result.instructions !== "string"
+    )
+      throw new Error("Roblox 코드 응답 형식을 확인해주세요.");
+    const folder = path.join(
+      p.folder,
+      "Roblox-" + Date.now() + "-" + randomUUID().slice(0, 6),
+    );
+    await mkdir(folder);
+    await writeFile(path.join(folder, "Game.server.luau"), result.code);
+    await writeFile(path.join(folder, "설치안내.txt"), result.instructions);
+    p.artifact = { type: "roblox", path: folder };
+    return (
+      "Roblox 코드와 설치 안내 저장 완료\n" +
+      folder +
+      "\nStudio에서 가져온 뒤 플레이 테스트가 필요합니다.\n" +
+      result.instructions
+    );
+  }
+  const html = await runProvider(
+    p.developer || "claude",
+    "목표에 맞는 Web 프로젝트의 완전한 단일 HTML 프로토타입을 작성하세요. CSS와 JavaScript를 포함하고 외부 의존성 없이 동작하게 하세요. HTML만 답변하세요. " +
+      context(p),
+  );
+  const file = path.join(p.folder, "web-" + Date.now() + ".html");
+  await writeFile(
+    file,
+    html
+      .trim()
+      .replace(/^```(?:html)?\s*/, "")
+      .replace(/\s*```$/, ""),
+  );
+  p.artifact = { type: "web", path: file };
+  return "HTML 저장 완료 " + file + "\n" + html;
+}
+const pipeline = createPipeline({
+  active,
+  persist: save,
+  actions: {
+    plan: async (p) => {
+      p.brief = await runProvider(
+        "codex",
+        "총괄 기획자. 목표를 작은 작업으로 분해하고 각 작업의 담당(기획/UI/개발/검증), 선행 작업, 완료 조건을 표로 정리하라. 지금 연결된 제작 방식은 단일 HTML, Unity C# 또는 Roblox Luau다. 도구 실행 금지.\n" +
+          context(p),
+      );
+      return p.brief;
+    },
+    design: async (p) => {
+      p.designBrief = await runProvider(
+        "codex",
+        "개발자에게 전달할 UI 및 구현 설계. 화면 구성, 데이터 흐름, 파일별 할 일과 검증 체크리스트를 간결하게 작성. 도구 실행 금지.\n" +
+          context(p),
+      );
+      return p.designBrief;
+    },
+    build: async (p) => {
+      await checkpoint(p);
+      await save();
+      return generateProject(p);
+    },
+    test: async (p) => {
+      if (!p.artifact) throw new Error("검증할 제작 결과가 없습니다.");
+      const validation = await testArtifact(p.artifact, compileUnity);
+      p.pipeline.validation = validation;
+      const buildTask = p.tasks.find(
+        (t) => t.id === p.pipeline.steps.find((s) => s.id === "build").taskId,
+      );
+      if (buildTask) buildTask.validation = validation;
+      if (validation.passed === false)
+        throw new Error(
+          validation.checks
+            .filter((c) => !c.passed)
+            .map((c) => c.name + ": " + c.detail)
+            .join("\n"),
+        );
+      return JSON.stringify(validation, null, 2);
+    },
+    review: async (p) => {
+      const result = await runProvider(
+        p.pipeline.reviewer,
+        "완료 조건과 제작 결과·검증 결과를 검토하고 완료한 일/남은 문제/수동 확인 항목을 보고하라. 실행 테스트를 했다고 주장하지 말 것. 도구 실행 금지.\n" +
+          context(p),
+      );
+      return result;
+    },
+  },
+});
 async function makeGame(p) {
   if (!p.folder) throw new Error("새 프로젝트에서 작업 폴더를 선택해주세요.");
   const prompt = `Unity 6000.6의 실행 가능한 소규모 게임을 만들어라. 외부 패키지·에셋 없이 기본 도형과 OnGUI만 사용. legacy Input API 사용. 빈 씬에서 Play만 눌러도 실행되도록 RuntimeInitializeOnLoadMethod로 카메라·오브젝트와 게임 로직을 구성하라. 이동, 목표, 승패, 재시작 포함. 도구 실행 금지. JSON만 출력: {"files":[{"path":"Assets/Scripts/GameBootstrap.cs","content":"전체 C# 코드"}]}. Scripts 바로 아래 영문 파일명의 C# 파일만 허용.\n${context(p)}`;
@@ -608,8 +721,34 @@ const server = http.createServer(async (req, res) => {
       for (const response of subscribers.get(p.id) || []) response.end();
       return send(res, 200, { ok: true });
     }
+    if (req.url.startsWith("/api/pipeline/")) {
+      if (req.url === "/api/pipeline/start") {
+        if (p.developer !== "codex" && !process.env.ANTHROPIC_API_KEY)
+          throw new Error(
+            "개발 담당 Claude의 연결 설정을 먼저 완료하거나, 프로젝트 설정에서 개발 담당을 Codex로 선택해주세요.",
+          );
+        if (!["web", "unity", "roblox"].includes(p.type) || !p.folder)
+          throw new Error(
+            "Unity/Web/Roblox 유형과 작업 폴더를 먼저 설정해주세요.",
+          );
+        const reviewer = process.env.GEMINI_API_KEY ? "gemini" : "codex";
+        pipeline.start(p, [
+          "Codex",
+          "Codex",
+          p.developer === "codex" ? "Codex" : "Claude",
+          "시스템",
+          reviewer === "gemini" ? "Gemini" : "Codex",
+        ]);
+        p.pipeline.reviewer = reviewer;
+      } else if (req.url === "/api/pipeline/pause") await pipeline.pause(p);
+      else if (req.url === "/api/pipeline/resume") pipeline.resume(p);
+      else throw new Error("지원하지 않는 자동 작업 요청입니다.");
+      await save();
+      return send(res, 202, { ok: true });
+    }
     if (req.url === "/api/project/update") {
-      if (active.has(p.id)) throw new Error("작업 종료 후 수정해주세요.");
+      if (active.has(p.id) || unfinishedPipeline(p))
+        throw new Error("자동 작업 완료 후 설정을 수정해주세요.");
       if (!["claude", "codex"].includes(body.developer))
         throw new Error("개발 담당을 확인해주세요.");
       if (
@@ -685,6 +824,10 @@ const server = http.createServer(async (req, res) => {
         text: message,
       });
       p.approved = false;
+      if (unfinishedPipeline(p)) {
+        await save();
+        return send(res, 202, { queued: true });
+      }
       if (active.has(p.id)) {
         (p.pendingInstructions ||= []).push(message);
         await teamEvent(
@@ -720,65 +863,7 @@ const server = http.createServer(async (req, res) => {
         p.developer === "codex" ? "Codex" : "Claude",
         () =>
           teamBuild(p, async () => {
-            if (p.type === "unity") return makeGame(p);
-            if (!p.folder)
-              throw new Error("폴더를 지정한 새 프로젝트를 만들어주세요.");
-            p.approved = false;
-            if (p.type === "roblox") {
-              const output = await runProvider(
-                p.developer || "claude",
-                'Roblox Studio용 게임을 Luau로 작성하라. 외부 에셋 없이 기본 Part를 생성하고 게임 규칙, 승패, 재시작을 구현. ServerScriptService의 Script에 넣을 단일 서버 스크립트와 설치·테스트 지침을 작성. JSON만 출력: {"code":"전체 Luau 코드","instructions":"한국어 설치와 테스트 방법"}. 실행 검증했다고 주장하지 말 것. ' +
-                  context(p),
-              );
-              const result = JSON.parse(
-                output
-                  .trim()
-                  .replace(/^```(?:json)?\s*/, "")
-                  .replace(/\s*```$/, ""),
-              );
-              if (
-                !result ||
-                typeof result.code !== "string" ||
-                !result.code.trim() ||
-                typeof result.instructions !== "string"
-              )
-                throw new Error("Roblox 코드 응답 형식을 확인해주세요.");
-              const folder = path.join(
-                p.folder,
-                "Roblox-" + Date.now() + "-" + randomUUID().slice(0, 6),
-              );
-              await mkdir(folder);
-              await writeFile(
-                path.join(folder, "Game.server.luau"),
-                result.code,
-              );
-              await writeFile(
-                path.join(folder, "설치안내.txt"),
-                result.instructions,
-              );
-              p.artifact = { type: "roblox", path: folder };
-              return (
-                "Roblox 코드와 설치 안내 저장 완료\n" +
-                folder +
-                "\nStudio에서 가져온 뒤 플레이 테스트가 필요합니다.\n" +
-                result.instructions
-              );
-            }
-            const html = await runProvider(
-              p.developer || "claude",
-              "목표에 맞는 Web 프로젝트의 완전한 단일 HTML 프로토타입을 작성하세요. CSS와 JavaScript를 포함하고 외부 의존성 없이 동작하게 하세요. HTML만 답변하세요. " +
-                context(p),
-            );
-            const file = path.join(p.folder, "web-" + Date.now() + ".html");
-            await writeFile(
-              file,
-              html
-                .trim()
-                .replace(/^```(?:html)?\s*/, "")
-                .replace(/\s*```$/, ""),
-            );
-            p.artifact = { type: "web", path: file };
-            return "HTML 저장 완료 " + file + "\n" + html;
+            return generateProject(p);
           }),
       );
     } else if (req.url === "/api/unity/open") {

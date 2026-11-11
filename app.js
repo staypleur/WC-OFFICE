@@ -715,7 +715,63 @@ function renderProject(project) {
   $('#workspace [data-action="/api/build"]').disabled =
     busy || project.type === "unassigned" || project.type === "app";
   renderWorkflow(project);
+  renderPipeline(project);
 }
+function renderPipeline(project) {
+  const flow = project.pipeline;
+  const pending = ["running", "paused", "failed"].includes(flow?.state);
+  $("#pipeline-status").textContent =
+    {
+      running: "자동 실행 중",
+      paused: "일시정지",
+      failed: "확인 필요",
+      review: "최종 승인 대기",
+    }[flow?.state] || "준비";
+  if (project.approved && flow?.state === "review")
+    $("#pipeline-status").textContent = "승인 완료";
+  $('#workspace [data-pipeline="start"]').disabled =
+    pending ||
+    project.status === "작업 중" ||
+    !!project.onHold ||
+    !["unity", "web", "roblox"].includes(project.type) ||
+    !project.folder;
+  $('#workspace [data-pipeline="pause"]').disabled =
+    flow?.state !== "running" || !!flow?.pauseRequested;
+  $('#workspace [data-pipeline="resume"]').disabled =
+    !["paused", "failed"].includes(flow?.state) || !!project.onHold;
+  $("#pipeline-hint").textContent = flow?.pauseRequested
+    ? "현재 AI 요청을 마친 뒤 멈춥니다. 이미 요청한 작업의 사용량은 발생할 수 있습니다."
+    : pending
+      ? "완료한 단계는 유지됩니다. 실패 시 해당 단계부터 다시 실행하며 최종 승인은 잠깁니다."
+      : "자동 제작을 누르면 목표 분석부터 결과 검토까지 이어서 실행합니다.";
+  const stepsKey = JSON.stringify(flow?.steps || []);
+  if ($("#pipeline-steps").dataset.view !== stepsKey) {
+    $("#pipeline-steps").dataset.view = stepsKey;
+    $("#pipeline-steps").innerHTML = (flow?.steps || [])
+      .map(
+        (s, i) =>
+          `<li data-state="${escape(s.state)}"><details><summary><span>${i + 1}</span><strong>${escape(s.title)}</strong><small>${escape(s.agent)} · ${{ pending: "대기", running: "실행 중", done: "완료", failed: "실패" }[s.state]}</small></summary><p class="notice">${i ? "선행: " + escape(flow.steps[i - 1].title) : "목표에서 시작"} · 시도 ${s.attempts || 0}회</p><pre>${escape(s.error || s.output || "선행 작업 완료 후 실행됩니다.")}</pre></details></li>`,
+      )
+      .join("");
+  }
+  if (pending)
+    for (const button of $("#workspace").querySelectorAll(
+      "[data-action], #project-settings button",
+    ))
+      button.disabled = true;
+}
+$("#workspace").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-pipeline]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await request("/api/pipeline/" + button.dataset.pipeline, { id: selected });
+    await refresh();
+  } catch (e) {
+    error(e.message);
+    button.disabled = false;
+  }
+});
 function renderWorkflow(project) {
   const state = workflow(project);
   $("#test-report").textContent = state.build?.validation
@@ -806,7 +862,11 @@ function renderWorkflow(project) {
           )
       : null;
   $("#review-report").textContent =
-    report?.detail || "이 제작 결과에 대한 별도 AI 검토 보고서가 없습니다.";
+    project.pipeline?.steps?.find(
+      (s) => s.id === "review" && s.state === "done",
+    )?.output ||
+    report?.detail ||
+    "이 제작 결과에 대한 별도 AI 검토 보고서가 없습니다.";
   $("#review-checked").disabled = !state.ready;
   $("#review-approve").disabled = !state.ready || !$("#review-checked").checked;
   $("#review-revision").disabled = !state.ready;

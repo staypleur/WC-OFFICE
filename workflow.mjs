@@ -9,36 +9,50 @@ export function workflow(p) {
   const builds = tasks.filter((t) => buildTitles.includes(t.title));
   const build = builds.at(-1);
   const busy = p.status === "작업 중";
+  const pipelinePending = ["running", "paused", "failed"].includes(
+    p.pipeline?.state,
+  );
   const revision =
     p.revisionRequest?.taskId === build?.id && !!p.revisionRequest;
   const ready =
     !!build &&
     build.status === "완료" &&
     !busy &&
+    !pipelinePending &&
     !p.onHold &&
     !p.approved &&
     !revision;
   const phase = p.phase?.title || "";
   const stage = p.approved
     ? 4
-    : busy
-      ? /검토|검증|컴파일/.test(phase)
-        ? 2
-        : /코드|저장|제작/.test(phase)
-          ? 1
-          : 0
-      : build?.status === "완료"
-        ? 3
-        : build
-          ? 1
-          : 0;
+    : pipelinePending
+      ? ({ plan: 0, design: 0, build: 1, test: 2, review: 2 }[
+          p.pipeline.steps.find((s) => s.state !== "done")?.id
+        ] ?? 3)
+      : busy
+        ? /검토|검증|컴파일/.test(phase)
+          ? 2
+          : /코드|저장|제작/.test(phase)
+            ? 1
+            : 0
+        : build?.status === "완료"
+          ? 3
+          : build
+            ? 1
+            : 0;
   const blocker = p.onHold
     ? "보류 중 · 보류를 해제하면 작업을 이어갈 수 있습니다."
-    : revision
-      ? "수정 요청됨 · 요청 내용을 반영해 다시 제작해주세요."
-      : build?.status === "오류"
-        ? build.output || "제작 중 오류가 발생했습니다."
-        : "";
+    : p.pipeline?.state === "paused"
+      ? "자동 작업 일시정지 · 재개하면 다음 미완료 단계부터 이어갑니다."
+      : p.pipeline?.state === "failed"
+        ? p.pipeline.steps.find((s) => s.state === "failed")?.error ||
+          p.pipeline.error ||
+          "자동 작업 확인 필요"
+        : revision
+          ? "수정 요청됨 · 요청 내용을 반영해 다시 제작해주세요."
+          : build?.status === "오류"
+            ? build.output || "제작 중 오류가 발생했습니다."
+            : "";
   return {
     build,
     previous: builds

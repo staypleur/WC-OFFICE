@@ -3768,3 +3768,57 @@ html[data-project-loading] #project-list {
   line-height: 1.7;
   border-bottom: 1px solid #ffffff12;
 }
+.pipeline-steps {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+.pipeline-steps li {
+  border: 1px solid #8bcaff22;
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: #030c1922;
+}
+.pipeline-steps summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.pipeline-steps summary span {
+  color: #83cfff;
+  font-family: monospace;
+}
+.pipeline-steps summary small {
+  margin-left: auto;
+  color: #9fb5cc;
+}
+.pipeline-steps [data-state="running"] {
+  border-color: #87ceff88;
+  background: #76bbff0a;
+}
+.pipeline-steps [data-state="done"] summary span {
+  color: #7de4b9;
+}
+.pipeline-steps [data-state="failed"] {
+  border-color: #ee969766;
+}
+.pipeline-steps pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.7;
+}
+@media (max-width: 650px) {
+  .pipeline-steps summary {
+    flex-wrap: wrap;
+  }
+  .pipeline-steps summary small {
+    margin-left: 0;
+    width: 100%;
+  }
+}

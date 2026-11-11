@@ -67,7 +67,7 @@ function excerpt(text, limit = 9000) {
         clean.slice((-limit * 2) / 3);
 }
 
-async function github(endpoint) {
+export async function github(endpoint) {
   try {
     const { stdout } = await exec(
       process.env.GH_BIN || "gh",

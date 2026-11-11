@@ -1,5 +1,6 @@
 import http from "node:http";
 import { artifactView } from "./artifact-view.mjs";
+import { createRepositoryFiles } from "./repository-files.mjs";
 import {
   createPipeline,
   unfinishedPipeline,
@@ -453,6 +454,7 @@ const marketing = createMarketing({
   },
 });
 const connectionMonitor = createConnectionMonitor();
+const repositoryFiles = createRepositoryFiles();
 const server = http.createServer(async (req, res) => {
   try {
     if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
@@ -468,10 +470,15 @@ const server = http.createServer(async (req, res) => {
       return send(
         res,
         200,
-        await artifactView(
+        await (
+          artifactUrl.searchParams.get("source") === "repository"
+            ? repositoryFiles
+            : artifactView
+        )(
           p,
           artifactUrl.searchParams.get("version") || "current",
           artifactUrl.searchParams.get("file") || undefined,
+          artifactUrl.searchParams.get("fresh") === "1",
         ),
       );
     }

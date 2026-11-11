@@ -5,7 +5,7 @@ grid.className = "workbench-grid";
 const files = document.createElement("div");
 files.className = "workbench-files";
 files.innerHTML =
-  '<h3>결과 파일</h3><label>결과 버전<select id="artifact-version"></select></label><button type="button" id="artifact-refresh">파일 새로고침</button><nav id="artifact-files" aria-label="결과 파일 목록"></nav>';
+  '<h3>프로젝트 파일</h3><label>파일 출처<select id="artifact-source"><option value="repository">GitHub 저장소</option><option value="generated">AI 생성 결과</option></select></label><label>버전 · 커밋<select id="artifact-version"></select></label><label>파일 찾기<input id="artifact-search" type="search" placeholder="이름 또는 경로" /></label><button type="button" id="artifact-refresh">파일 새로고침</button><p id="artifact-file-count" class="notice"></p><nav id="artifact-files" aria-label="결과 파일 목록"></nav>';
 const center = document.createElement("section");
 center.className = "workbench-view";
 center.innerHTML =
@@ -25,10 +25,16 @@ let project = null,
   selectedFile = "",
   mode = "preview",
   requestId = 0;
+let source = "generated",
+  fresh = false;
 let currentFiles = [],
   baseFiles = [];
 async function fetchArtifact(v, file) {
-  const query = new URLSearchParams({ version: v });
+  const query = new URLSearchParams({ version: v, source });
+  if (fresh && !file) {
+    query.set("fresh", "1");
+    fresh = false;
+  }
   if (file) query.set("file", file);
   const response = await fetch(`/api/artifacts/${project.id}?${query}`);
   const data = await response.json();
@@ -51,7 +57,11 @@ async function load() {
   try {
     const listing = await fetchArtifact(version);
     if (token !== requestId) return;
-    if (!listing.versions.some((v) => v.id === baseline))
+    version = listing.version || version;
+    if (
+      baseline === version ||
+      !listing.versions.some((v) => v.id === baseline)
+    )
       baseline = listing.versions.find((v) => v.id !== version)?.id || "";
     options($("#artifact-version"), listing.versions, version);
     options(
@@ -72,7 +82,12 @@ async function load() {
     ];
     if (!names.includes(selectedFile)) selectedFile = names[0] || "";
     $("#artifact-files").replaceChildren();
-    for (const name of names) {
+    const matching = names.filter((name) =>
+      name.toLowerCase().includes($("#artifact-search").value.toLowerCase()),
+    );
+    $("#artifact-file-count").textContent =
+      `${matching.length}개 파일${matching.length > 300 ? " · 300개씩 표시, 검색으로 좁혀주세요." : ""}`;
+    for (const name of matching.slice(0, 300)) {
       const button = document.createElement("button");
       button.textContent = name;
       button.title = name;
@@ -98,7 +113,9 @@ async function load() {
     if (mode === "diff") {
       if (!baseline) {
         $("#artifact-notice").textContent =
-          "비교할 이전 체크포인트가 없습니다.";
+          source === "repository"
+            ? "비교할 이전 커밋이 없습니다."
+            : "비교할 이전 체크포인트가 없습니다.";
         return;
       }
       const old = baseFiles.some((f) => f.name === selectedFile)
@@ -153,7 +170,9 @@ async function load() {
         display.append(pre);
         if (mode === "preview")
           $("#artifact-notice").textContent =
-            "소스 미리보기 · Unity/Roblox의 플레이는 해당 에디터에서 확인해주세요.";
+            source === "repository"
+              ? "GitHub 소스 미리보기 · 실행 환경이 필요한 프로젝트는 별도 빌드가 필요합니다."
+              : "소스 미리보기 · Unity/Roblox의 플레이는 해당 에디터에서 확인해주세요.";
       }
     }
   } catch (e) {
@@ -171,7 +190,24 @@ $("#artifact-compare").onchange = (e) => {
   baseline = e.target.value;
   load();
 };
-$("#artifact-refresh").onclick = () => load();
+$("#artifact-refresh").onclick = () => {
+  version = "current";
+  fresh = true;
+  load();
+};
+$("#artifact-source").onchange = (e) => {
+  source = e.target.value;
+  version = "current";
+  baseline = "";
+  selectedFile = "";
+  $("#artifact-search").value = "";
+  load();
+};
+let searchTimer;
+$("#artifact-search").oninput = () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(load, 250);
+};
 for (const button of center.querySelectorAll("[data-view]"))
   button.onclick = () => {
     mode = button.dataset.view;
@@ -185,11 +221,17 @@ export function updateWorkbench(p) {
   project = p;
   const next = JSON.stringify([
     p.id,
+    p.repository,
+    p.repositoryReport?.commit,
     p.artifact,
     p.checkpoints?.map((c) => c.id),
     p.tasks?.at(-1)?.status,
   ]);
   if (changed) {
+    source = p.repository ? "repository" : "generated";
+    $("#artifact-source").value = source;
+    $("#artifact-source option[value=repository]").disabled = !p.repository;
+    $("#artifact-search").value = "";
     version = "current";
     baseline = "";
     selectedFile = "";

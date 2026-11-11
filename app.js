@@ -1,6 +1,7 @@
 import { projectSummary } from "/project-summary.mjs";
 import { workflow } from "/workflow.mjs";
 import { observeProject } from "/office-alerts.js";
+import { updateWorkbench } from "/workbench.js";
 import {
   compareHistory,
   historyKey,
@@ -647,6 +648,7 @@ $("#refresh-all").onclick = async () => {
 function renderProject(project) {
   observeProject(project);
   if (project.id !== selected) return;
+  updateWorkbench(project);
   $("#workspace").hidden = false;
   $("#project-name").textContent = project.name || project.goal;
   $("#project-goal").textContent = project.goal;
@@ -682,7 +684,9 @@ function renderProject(project) {
   const busy = project.status === "작업 중" || project.onHold;
   $("#project-status").textContent = project.status;
   $("#workspace")
-    .querySelectorAll("button:not(#chat-form button)")
+    .querySelectorAll(
+      "button:not(#chat-form button):not(.workbench-view button):not(.workbench-files button)",
+    )
     .forEach((button) => (button.disabled = busy));
   $("#open-unity").disabled = busy || !project.unityFolder;
   $("#open-unity").hidden = project.type !== "unity";

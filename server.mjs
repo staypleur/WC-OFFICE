@@ -1,4 +1,5 @@
 import http from "node:http";
+import { artifactView } from "./artifact-view.mjs";
 import {
   createPipeline,
   unfinishedPipeline,
@@ -457,6 +458,23 @@ const server = http.createServer(async (req, res) => {
     if (!["127.0.0.1:4310", "localhost:4310"].includes(req.headers.host))
       return send(res, 403, { error: "허용되지 않은 주소입니다." });
     const streamMatch = /^\/api\/projects\/([a-f0-9-]+)\/events$/.exec(req.url);
+    const artifactUrl = new URL(req.url, "http://127.0.0.1:4310");
+    const artifactMatch = /^\/api\/artifacts\/([a-f0-9-]+)$/.exec(
+      artifactUrl.pathname,
+    );
+    if (req.method === "GET" && artifactMatch) {
+      const p = projects.find((p) => p.id === artifactMatch[1] && !p.deletedAt);
+      if (!p) return send(res, 404, { error: "프로젝트를 찾지 못했습니다." });
+      return send(
+        res,
+        200,
+        await artifactView(
+          p,
+          artifactUrl.searchParams.get("version") || "current",
+          artifactUrl.searchParams.get("file") || undefined,
+        ),
+      );
+    }
     const marketingMatch = /^\/api\/marketing\/([a-f0-9-]+)$/.exec(req.url);
     if (req.method === "GET" && marketingMatch) {
       res.setHeader("Cache-Control", "no-store");
@@ -538,6 +556,8 @@ const server = http.createServer(async (req, res) => {
           "/project-summary.mjs",
           "/workflow.mjs",
           "/office-alerts.js",
+          "/workbench.js",
+          "/file-diff.mjs",
           "/history-compare.mjs",
         ].includes(req.url))
     ) {
